@@ -7,7 +7,7 @@ const state = {
     notifications: []
 };
 
-//Datos de la estructura de los roles de los usuarios
+// Datos de la estructura de los roles de los usuarios
 const sampleUsers = [
     { 
         id: 1, 
@@ -161,12 +161,14 @@ const sampleNotifications = [
     }
 ];
 
+// =======================
+// FUNCIONES PRINCIPALES
+// =======================
+
 // Initialize application
 function initApp() {
-    // Load sample data
-    state.users = [...sampleUsers];
-    state.articles = [...sampleArticles];
-    state.notifications = [...sampleNotifications];
+    // Load data from localStorage or use sample data
+    loadDataFromStorage();
     
     // Set up event listeners
     document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -183,6 +185,24 @@ function initApp() {
     
     // Update public header
     updatePublicHeader();
+}
+
+// Load data from localStorage
+function loadDataFromStorage() {
+    const savedUsers = localStorage.getItem('revista_users');
+    const savedArticles = localStorage.getItem('revista_articles');
+    const savedNotifications = localStorage.getItem('revista_notifications');
+    
+    state.users = savedUsers ? JSON.parse(savedUsers) : [...sampleUsers];
+    state.articles = savedArticles ? JSON.parse(savedArticles) : [...sampleArticles];
+    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [...sampleNotifications];
+}
+
+// Save data to localStorage
+function saveDataToStorage() {
+    localStorage.setItem('revista_users', JSON.stringify(state.users));
+    localStorage.setItem('revista_articles', JSON.stringify(state.articles));
+    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
 }
 
 // Update public header navigation
@@ -309,15 +329,53 @@ function loadPublicPosicionamiento() {
     grid.innerHTML = html || '<p class="no-content">No hay reflexiones críticas publicadas aún.</p>';
 }
 
-// Show public article detail
+// Show public article detail - IMPROVED VERSION
 function showPublicArticleDetail(articleId) {
     const article = state.articles.find(a => a.id === articleId && a.status === 'published');
     if (!article) return;
     
-    // For public view, we'll show a simple alert with the content
-    // In a real implementation, this would show a detailed modal or page
-    alert(`🔒 Contenido restringido\n\nPara leer el artículo completo "${article.title}" y acceder a todas las funcionalidades, por favor inicie sesión en el sistema.`);
-    showPage('login-page');
+    // Create modal for public article viewing
+    const modalHTML = `
+        <div class="modal-overlay" onclick="closePublicModal()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>${article.title}</h2>
+                    <button class="modal-close" onclick="closePublicModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="article-meta">
+                        <span><strong>Autor:</strong> ${article.author}</span>
+                        <span><strong>Fecha:</strong> ${formatDate(article.createdAt)}</span>
+                        <span><strong>Categoría:</strong> ${getCategoryName(article.category)}</span>
+                    </div>
+                    ${article.image ? `
+                        <div class="article-image-modal">
+                            <img src="${article.image}" alt="${article.title}">
+                        </div>
+                    ` : ''}
+                    <div class="article-content-full">
+                        ${article.content.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="article-actions-public">
+                        <p><em>💡 Para comentar y acceder a más funciones, <a href="#" onclick="showPage('login-page'); closePublicModal()">inicia sesión</a></em></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'public-article-modal';
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
+}
+
+function closePublicModal() {
+    const modal = document.getElementById('public-article-modal');
+    if (modal) {
+        modal.remove();
+    }
 }
 
 // Handle user login
@@ -337,6 +395,7 @@ function handleLogin(e) {
         
         // Update last login
         user.lastLogin = new Date().toISOString().split('T')[0];
+        saveDataToStorage();
         
         updateUIForUser();
         showPage('dashboard-page');
@@ -353,18 +412,21 @@ function updateUIForUser() {
     
     let navItems = '';
     
-    if (state.currentUser.role === 'student') {
-        navItems = `
-            <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Mis Artículos</a></li>
-            <li><a href="#" onclick="showNewArticleForm()">✍️ Nuevo Artículo</a></li>
-            <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-        `;
-    } else if (state.currentUser.role === 'teacher') {
+    // Common items for all logged-in users
+    navItems = `
+        <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+        <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 ${state.currentUser.role === 'student' ? 'Mis Artículos' : 'Artículos'}</a></li>
+        <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+        <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+    `;
+    
+    // Role-specific items
+    if (state.currentUser.role === 'teacher') {
         navItems = `
             <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
             <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
             <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+            <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
             <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
         `;
     } else if (state.currentUser.role === 'admin') {
@@ -373,12 +435,7 @@ function updateUIForUser() {
             <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
             <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
             <li><a href="#" onclick="showPage('users-page'); loadUsers()">👥 Usuarios</a></li>
-            <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-        `;
-    } else if (state.currentUser.role === 'parent') {
-        navItems = `
-            <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
+            <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
             <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
         `;
     }
@@ -515,6 +572,7 @@ function markNotificationAsRead(notificationId) {
     const notification = state.notifications.find(n => n.id === notificationId);
     if (notification) {
         notification.read = true;
+        saveDataToStorage();
         if (notification.link) {
             showPage(notification.link);
             if (notification.link === 'pending-articles-page') {
@@ -689,6 +747,7 @@ function saveArticle(e) {
         }
     }
     
+    saveDataToStorage();
     showPage('articles-page');
     loadArticles();
     updateDashboard();
@@ -765,6 +824,7 @@ function approveArticle(articleId) {
             link: 'articles-page'
         });
         
+        saveDataToStorage();
         loadPendingArticles();
         updateDashboard();
         alert('✅ Artículo aprobado y publicado exitosamente.');
@@ -792,6 +852,7 @@ function rejectArticle(articleId) {
             link: 'articles-page'
         });
         
+        saveDataToStorage();
         loadPendingArticles();
         updateDashboard();
         alert('✅ Artículo rechazado. El autor ha sido notificado.');
@@ -880,6 +941,7 @@ function deleteArticle(articleId) {
         const index = state.articles.findIndex(a => a.id === articleId);
         if (index !== -1) {
             state.articles.splice(index, 1);
+            saveDataToStorage();
             showPage('articles-page');
             loadArticles();
             updateDashboard();
@@ -935,6 +997,7 @@ function addComment(e) {
     article.comments.push(newComment);
     document.getElementById('comment-content').value = '';
     
+    saveDataToStorage();
     loadComments(articleId);
     updateDashboard();
     
@@ -949,6 +1012,7 @@ function addComment(e) {
             createdAt: new Date().toISOString().split('T')[0],
             link: 'article-detail-page'
         });
+        saveDataToStorage();
     }
     
     alert('✅ Comentario publicado exitosamente.');
@@ -993,6 +1057,7 @@ function toggleUserStatus(userId) {
     const user = state.users.find(u => u.id === userId);
     if (user) {
         user.active = !user.active;
+        saveDataToStorage();
         loadUsers();
         alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
     }
@@ -1003,6 +1068,7 @@ function resetUserPassword(userId) {
     const user = state.users.find(u => u.id === userId);
     if (user) {
         user.password = '123'; // Default password
+        saveDataToStorage();
         alert(`✅ Contraseña de ${user.name} reseteada a "123".`);
     }
 }
@@ -1043,6 +1109,7 @@ function createUser(e) {
     };
     
     state.users.push(newUser);
+    saveDataToStorage();
     
     showPage('users-page');
     loadUsers();
@@ -1084,6 +1151,7 @@ function changePassword(e) {
     }
     
     state.currentUser.password = newPassword;
+    saveDataToStorage();
     
     showPage('dashboard-page');
     alert('✅ Contraseña cambiada exitosamente.');
@@ -1095,6 +1163,372 @@ function logout() {
     showPublicMagazine();
     document.getElementById('login-form').reset();
     updatePublicHeader();
+}
+
+// =======================
+// SISTEMA DE JUEGOS EDUCATIVOS
+// =======================
+
+// Games Page
+function showGamesPage() {
+    showPage('games-page');
+    initGamesDashboard();
+}
+
+// Initialize games dashboard
+function initGamesDashboard() {
+    const gamesGrid = document.getElementById('games-grid');
+    
+    const games = [
+        {
+            id: 'sudoku',
+            name: '🧩 Sudoku Matemático',
+            description: 'Desafía tu lógica matemática con este juego de números',
+            difficulty: 'Intermedio',
+            category: 'matematico'
+        },
+        {
+            id: 'crucigrama',
+            name: '📝 Crucigrama Lingüístico',
+            description: 'Amplía tu vocabulario con este crucigrama educativo',
+            difficulty: 'Fácil',
+            category: 'linguistico'
+        },
+        {
+            id: 'memoria',
+            name: '🎵 Juego de Memoria Musical',
+            description: 'Entrena tu memoria con notas y ritmos musicales',
+            difficulty: 'Fácil',
+            category: 'musical'
+        },
+        {
+            id: 'simon',
+            name: '💡 Simón Dice Tecnológico',
+            description: 'Mejora tu memoria secuencial con patrones de colores',
+            difficulty: 'Intermedio',
+            category: 'tecnologico'
+        }
+    ];
+    
+    let gamesHTML = '';
+    games.forEach(game => {
+        gamesHTML += `
+            <div class="game-card" onclick="startGame('${game.id}')">
+                <div class="game-icon">${game.name.split(' ')[0]}</div>
+                <h3>${game.name}</h3>
+                <p>${game.description}</p>
+                <div class="game-meta">
+                    <span class="difficulty-badge ${game.difficulty.toLowerCase()}">${game.difficulty}</span>
+                    <span class="game-category">${getCategoryName(game.category)}</span>
+                </div>
+                <button class="btn-play">🎮 Jugar Ahora</button>
+            </div>
+        `;
+    });
+    
+    gamesGrid.innerHTML = gamesHTML;
+}
+
+// Start a specific game
+function startGame(gameId) {
+    switch(gameId) {
+        case 'sudoku':
+            startSudokuGame();
+            break;
+        case 'crucigrama':
+            startCrosswordGame();
+            break;
+        case 'memoria':
+            startMemoryGame();
+            break;
+        case 'simon':
+            startSimonGame();
+            break;
+        default:
+            alert('Juego en desarrollo. ¡Próximamente!');
+    }
+}
+
+// Sudoku Game Implementation
+function startSudokuGame() {
+    showPage('sudoku-game-page');
+    initSudoku();
+}
+
+function initSudoku() {
+    const sudokuContainer = document.getElementById('sudoku-container');
+    
+    // Simple 4x4 Sudoku for demonstration
+    const sudokuHTML = `
+        <div class="game-header">
+            <h2>🧩 Sudoku Matemático</h2>
+            <p>Completa el tablero con números del 1 al 4 sin repetir en filas, columnas o cuadrantes</p>
+        </div>
+        <div class="sudoku-board">
+            <div class="sudoku-grid">
+                ${Array.from({length: 16}, (_, i) => `
+                    <div class="sudoku-cell" data-row="${Math.floor(i/4)}" data-col="${i%4}">
+                        <input type="number" min="1" max="4" oninput="validateSudokuInput(this)">
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        <div class="game-controls">
+            <button onclick="checkSudokuSolution()" class="btn-success">✅ Verificar Solución</button>
+            <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+        </div>
+        <div id="sudoku-feedback" class="game-feedback"></div>
+    `;
+    
+    sudokuContainer.innerHTML = sudokuHTML;
+    
+    // Set some initial numbers (puzzle)
+    const initialNumbers = [
+        [1, 0, 0, 0],
+        [0, 0, 2, 0],
+        [0, 3, 0, 0],
+        [0, 0, 0, 4]
+    ];
+    
+    const cells = document.querySelectorAll('.sudoku-cell input');
+    cells.forEach((cell, index) => {
+        const row = Math.floor(index / 4);
+        const col = index % 4;
+        if (initialNumbers[row][col] !== 0) {
+            cell.value = initialNumbers[row][col];
+            cell.readOnly = true;
+            cell.style.background = '#f3f4f6';
+        }
+    });
+}
+
+function validateSudokuInput(input) {
+    const value = parseInt(input.value);
+    if (value < 1 || value > 4) {
+        input.value = '';
+    }
+}
+
+function checkSudokuSolution() {
+    const cells = document.querySelectorAll('.sudoku-cell input');
+    let solved = true;
+    
+    cells.forEach(cell => {
+        if (!cell.value) {
+            solved = false;
+            cell.style.border = '2px solid red';
+        } else {
+            cell.style.border = '1px solid #ccc';
+        }
+    });
+    
+    const feedback = document.getElementById('sudoku-feedback');
+    if (solved) {
+        feedback.innerHTML = `
+            <div class="success-message">
+                <h3>🎉 ¡Felicidades!</h3>
+                <p>Has completado correctamente el Sudoku. ¡Excelente razonamiento matemático!</p>
+            </div>
+        `;
+        
+        // Add achievement notification
+        if (state.currentUser) {
+            state.notifications.unshift({
+                id: state.notifications.length + 1,
+                title: '🏆 Logro Desbloqueado',
+                content: 'Completaste el Sudoku Matemático exitosamente',
+                type: 'success',
+                read: false,
+                createdAt: new Date().toISOString().split('T')[0]
+            });
+            saveDataToStorage();
+            updateDashboard();
+        }
+    } else {
+        feedback.innerHTML = `
+            <div class="error-message">
+                <p>❌ El tablero no está completo. Revisa las celdas en rojo.</p>
+            </div>
+        `;
+    }
+}
+
+// Crossword Game Implementation
+function startCrosswordGame() {
+    showPage('crossword-game-page');
+    initCrossword();
+}
+
+function initCrossword() {
+    const crosswordContainer = document.getElementById('crossword-container');
+    
+    const crosswordHTML = `
+        <div class="game-header">
+            <h2>📝 Crucigrama Lingüístico</h2>
+            <p>Resuelve el crucigrama relacionado con temas educativos y literarios</p>
+        </div>
+        
+        <div class="crossword-clues">
+            <div class="clues-section">
+                <h4>Horizontal:</h4>
+                <p>1. Género literario que usa el verso (5 letras)</p>
+                <p>3. Sinónimo de aprender (9 letras)</p>
+            </div>
+            <div class="clues-section">
+                <h4>Vertical:</h4>
+                <p>2. Persona que escribe libros (7 letras)</p>
+                <p>4. Lugar donde se estudia (7 letras)</p>
+            </div>
+        </div>
+        
+        <div class="crossword-grid">
+            <div class="crossword-row">
+                <div class="crossword-cell" data-word="1h">P</div>
+                <div class="crossword-cell" data-word="1h">O</div>
+                <div class="crossword-cell" data-word="1h">E</div>
+                <div class="crossword-cell" data-word="1h">S</div>
+                <div class="crossword-cell" data-word="1h">Í</div>
+                <div class="crossword-cell" data-word="1h">A</div>
+            </div>
+            <div class="crossword-row">
+                <div class="crossword-cell" data-word="2v">E</div>
+                <div class="crossword-cell"> </div>
+                <div class="crossword-cell">S</div>
+                <div class="crossword-cell">T</div>
+                <div class="crossword-cell">U</div>
+                <div class="crossword-cell">D</div>
+                <div class="crossword-cell">I</div>
+                <div class="crossword-cell">A</div>
+                <div class="crossword-cell">R</div>
+            </div>
+        </div>
+        
+        <div class="game-controls">
+            <button onclick="checkCrosswordSolution()" class="btn-success">✅ Verificar Respuestas</button>
+            <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+        </div>
+        
+        <div id="crossword-feedback" class="game-feedback"></div>
+    `;
+    
+    crosswordContainer.innerHTML = crosswordHTML;
+}
+
+function checkCrosswordSolution() {
+    alert('🎉 ¡Crucigrama completado! Este es un ejemplo demostrativo. En una versión completa, se validarían todas las respuestas.');
+}
+
+// Memory Game Implementation
+function startMemoryGame() {
+    showPage('memory-game-page');
+    initMemoryGame();
+}
+
+function initMemoryGame() {
+    const memoryContainer = document.getElementById('memory-container');
+    
+    const symbols = ['🎵', '🎶', '🎼', '🎹', '🎷', '🎺', '🎻', '🥁'];
+    const cards = [...symbols, ...symbols].sort(() => Math.random() - 0.5);
+    
+    let memoryHTML = `
+        <div class="game-header">
+            <h2>🎵 Juego de Memoria Musical</h2>
+            <p>Encuentra las parejas de instrumentos musicales</p>
+            <div class="game-stats">
+                <span>Intentos: <span id="attempts">0</span></span>
+                <span>Parejas: <span id="matches">0</span>/8</span>
+            </div>
+        </div>
+        <div class="memory-grid">
+    `;
+    
+    cards.forEach((symbol, index) => {
+        memoryHTML += `
+            <div class="memory-card" data-index="${index}" onclick="flipCard(this)">
+                <div class="card-front">?</div>
+                <div class="card-back">${symbol}</div>
+            </div>
+        `;
+    });
+    
+    memoryHTML += `
+        </div>
+        <div class="game-controls">
+            <button onclick="resetMemoryGame()" class="btn-success">🔄 Reiniciar Juego</button>
+            <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+        </div>
+    `;
+    
+    memoryContainer.innerHTML = memoryHTML;
+    
+    // Initialize game state
+    window.memoryGameState = {
+        flippedCards: [],
+        attempts: 0,
+        matches: 0,
+        locked: false
+    };
+}
+
+function flipCard(card) {
+    const state = window.memoryGameState;
+    if (state.locked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    
+    card.classList.add('flipped');
+    state.flippedCards.push(card);
+    
+    if (state.flippedCards.length === 2) {
+        state.attempts++;
+        document.getElementById('attempts').textContent = state.attempts;
+        
+        state.locked = true;
+        const [card1, card2] = state.flippedCards;
+        
+        if (card1.querySelector('.card-back').textContent === card2.querySelector('.card-back').textContent) {
+            // Match found
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            state.matches++;
+            document.getElementById('matches').textContent = state.matches;
+            state.flippedCards = [];
+            state.locked = false;
+            
+            if (state.matches === 8) {
+                setTimeout(() => {
+                    alert('🎉 ¡Felicidades! Has completado el juego de memoria.');
+                    if (state.currentUser) {
+                        state.notifications.unshift({
+                            id: state.notifications.length + 1,
+                            title: '🏆 Logro Desbloqueado',
+                            content: 'Completaste el Juego de Memoria Musical',
+                            type: 'success',
+                            read: false,
+                            createdAt: new Date().toISOString().split('T')[0]
+                        });
+                        saveDataToStorage();
+                        updateDashboard();
+                    }
+                }, 500);
+            }
+        } else {
+            // No match
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                state.flippedCards = [];
+                state.locked = false;
+            }, 1000);
+        }
+    }
+}
+
+function resetMemoryGame() {
+    initMemoryGame();
+}
+
+// Simon Game Implementation
+function startSimonGame() {
+    alert('🎮 El juego "Simón Dice" estará disponible en la próxima actualización. ¡Gracias por tu interés!');
 }
 
 // Initialize the application when the page loads

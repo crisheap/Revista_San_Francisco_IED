@@ -21,8 +21,8 @@
                 </div>
                 <nav>
                     <ul id="nav-menu">
-                        <li><a href="#" onclick="showPublicMagazine()"></a></li>
-                        <li><a href="#" onclick="showPage('login-page')"></a></li>
+                        <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+                        <li><a href="#" onclick="showPage('login-page')">🔐 Ingresar</a></li>
                     </ul>
                 </nav>
                 <div class="user-info" id="user-info">
@@ -211,6 +211,10 @@
                     <button class="btn-action" onclick="showPage('articles-page'); loadArticles()">
                         <span>📚</span>
                         <span>Ver Artículos</span>
+                    </button>
+                    <button class="btn-action" onclick="showGamesPage()">
+                        <span>🎮</span>
+                        <span>Juegos Educativos</span>
                     </button>
                     <button class="btn-action" onclick="showPublicMagazine()">
                         <span>👀</span>
@@ -500,6 +504,55 @@
                 </div>
             </div>
         </div>
+
+        <!-- Games Page -->
+        <div id="games-page" class="page">
+            <div class="page-header">
+                <h2 class="page-title">🎮 Juegos Educativos</h2>
+                <button onclick="showPage('dashboard-page')" class="btn-outline">← Volver al Dashboard</button>
+            </div>
+            
+            <div class="games-intro">
+                <p>Desarrolla tus habilidades a través de estos juegos educativos diseñados para potenciar diferentes tipos de talento.</p>
+            </div>
+            
+            <div class="games-grid" id="games-grid">
+                <!-- Games will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Sudoku Game Page -->
+        <div id="sudoku-game-page" class="page">
+            <div class="page-header">
+                <h2 class="page-title">🧩 Sudoku Matemático</h2>
+                <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+            </div>
+            <div id="sudoku-container">
+                <!-- Sudoku game will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Crossword Game Page -->
+        <div id="crossword-game-page" class="page">
+            <div class="page-header">
+                <h2 class="page-title">📝 Crucigrama Lingüístico</h2>
+                <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+            </div>
+            <div id="crossword-container">
+                <!-- Crossword game will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Memory Game Page -->
+        <div id="memory-game-page" class="page">
+            <div class="page-header">
+                <h2 class="page-title">🎵 Juego de Memoria Musical</h2>
+                <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
+            </div>
+            <div id="memory-container">
+                <!-- Memory game will be rendered here -->
+            </div>
+        </div>
     </main>
 
     <footer>
@@ -519,6 +572,7 @@
                     <h4>Enlaces Rápidos</h4>
                     <a href="#" onclick="showPublicMagazine()">Ver Revista</a>
                     <a href="#" onclick="showPage('login-page')">Acceso Usuarios</a>
+                    <a href="#" onclick="showGamesPage()">Juegos Educativos</a>
                 </div>
             </div>
             <div class="footer-bottom">
