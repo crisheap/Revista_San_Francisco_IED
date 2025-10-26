@@ -7,7 +7,7 @@ const state = {
     notifications: []
 };
 
-// Sample data with improved structure for Programa Talentos
+//Datos de la estructura de los roles de los usuarios
 const sampleUsers = [
     { 
         id: 1, 
