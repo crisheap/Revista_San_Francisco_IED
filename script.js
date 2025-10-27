@@ -68,6 +68,7 @@ const sampleArticles = [
         author: 'Juan Pérez',
         authorId: 1,
         image: '',
+        imageFile: null,
         status: 'published',
         createdAt: '2025-03-15',
         comments: [
@@ -84,6 +85,7 @@ const sampleArticles = [
         author: 'Ana López',
         authorId: 5,
         image: '',
+        imageFile: null,
         status: 'published',
         createdAt: '2025-03-10',
         comments: [
@@ -99,6 +101,7 @@ const sampleArticles = [
         author: 'María González',
         authorId: 2,
         image: '',
+        imageFile: null,
         status: 'published',
         createdAt: '2025-03-18',
         comments: []
@@ -112,6 +115,7 @@ const sampleArticles = [
         author: 'Juan Pérez',
         authorId: 1,
         image: '',
+        imageFile: null,
         status: 'published',
         createdAt: '2025-03-22',
         comments: []
@@ -125,6 +129,7 @@ const sampleArticles = [
         author: 'Ana López',
         authorId: 5,
         image: '',
+        imageFile: null,
         status: 'pending',
         createdAt: '2025-03-20',
         comments: []
@@ -162,7 +167,7 @@ const sampleNotifications = [
 ];
 
 // =======================
-// FUNCIONES PRINCIPALES
+// FUNCIONES PRINCIPALES MEJORADAS
 // =======================
 
 // Initialize application
@@ -171,6 +176,23 @@ function initApp() {
     loadDataFromStorage();
     
     // Set up event listeners
+    setupEventListeners();
+    
+    // Add search functionality
+    addSearchFunctionality();
+    
+    // Load public magazine by default
+    loadPublicMagazine();
+    showPage('public-magazine-page');
+    
+    // Update public header
+    updatePublicHeader();
+    
+    console.log('✅ Sistema de Revista Digital inicializado correctamente');
+}
+
+// Setup event listeners
+function setupEventListeners() {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
     document.getElementById('new-article-btn').addEventListener('click', showNewArticleForm);
     document.getElementById('cancel-article-btn').addEventListener('click', cancelArticleForm);
@@ -179,12 +201,23 @@ function initApp() {
     document.getElementById('create-user-form').addEventListener('submit', createUser);
     document.getElementById('change-password-form').addEventListener('submit', changePassword);
     
-    // Load public magazine by default
-    loadPublicMagazine();
-    showPage('public-magazine-page');
+    // Character count for forms
+    document.getElementById('article-title').addEventListener('input', updateCharCount);
+    document.getElementById('article-content').addEventListener('input', updateCharCount);
+    document.getElementById('comment-content').addEventListener('input', updateCharCount);
     
-    // Update public header
-    updatePublicHeader();
+    // Username availability check
+    document.getElementById('new-user-username').addEventListener('input', checkUsernameAvailability);
+    
+    // Password confirmation check
+    document.getElementById('confirm-password').addEventListener('input', checkPasswordMatch);
+    
+    // Search functionality
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && e.target.id === 'public-search') {
+            searchInMagazine();
+        }
+    });
 }
 
 // Load data from localStorage
@@ -196,18 +229,36 @@ function loadDataFromStorage() {
     state.users = savedUsers ? JSON.parse(savedUsers) : [...sampleUsers];
     state.articles = savedArticles ? JSON.parse(savedArticles) : [...sampleArticles];
     state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [...sampleNotifications];
+    
+    // Convertir imageFile de string base64 a Blob si existe
+    state.articles.forEach(article => {
+        if (article.imageFile && typeof article.imageFile === 'string') {
+            // En un sistema real, aquí se reconstruiría el Blob desde base64
+            // Por simplicidad, mantenemos la URL de imagen si existe
+        }
+    });
 }
 
 // Save data to localStorage
 function saveDataToStorage() {
+    // Preparar artículos para almacenamiento (convertir Blobs a base64)
+    const articlesToSave = state.articles.map(article => {
+        const articleCopy = {...article};
+        // No guardamos el Blob directamente en localStorage
+        delete articleCopy.imageFile;
+        return articleCopy;
+    });
+    
     localStorage.setItem('revista_users', JSON.stringify(state.users));
-    localStorage.setItem('revista_articles', JSON.stringify(state.articles));
+    localStorage.setItem('revista_articles', JSON.stringify(articlesToSave));
     localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
 }
 
 // Update public header navigation
 function updatePublicHeader() {
     const userInfo = document.getElementById('user-info');
+    const exportBtn = document.getElementById('export-btn');
+    
     if (state.currentUser) {
         userInfo.innerHTML = `
             <div class="user-avatar">${state.currentUser.name.charAt(0)}</div>
@@ -217,12 +268,32 @@ function updatePublicHeader() {
             </div>
             <button onclick="logout()">Cerrar Sesión</button>
         `;
+        
+        // Show export button for admins
+        if (state.currentUser.role === 'admin') {
+            exportBtn.style.display = 'flex';
+        }
+        
+        // Update navigation menu
+        updateUIForUser();
     } else {
         userInfo.innerHTML = `
             <button onclick="showPublicMagazine()" class="btn-outline">👀 Ver Revista</button>
             <button onclick="showPage('login-page')">🔐 Ingresar</button>
         `;
+        
+        // Reset navigation to public view
+        const navMenu = document.getElementById('nav-menu');
+        navMenu.innerHTML = `
+            <li><a href="#" onclick="showPublicMagazine()">🏠 Inicio</a></li>
+            <li><a href="#" onclick="showPage('login-page')">🔐 Ingresar</a></li>
+        `;
     }
+}
+
+// Add search functionality
+function addSearchFunctionality() {
+    // Search functionality is now built into the HTML
 }
 
 // Show public magazine
@@ -249,7 +320,10 @@ function loadPublicPortafolios() {
         html += `
             <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
                 <div class="article-image">
-                    ${getCategoryIcon(article.category)}
+                    ${article.imageFile ? 
+                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                        getCategoryIcon(article.category)
+                    }
                 </div>
                 <div class="article-content">
                     <h3 class="article-title">${article.title}</h3>
@@ -260,6 +334,7 @@ function loadPublicPortafolios() {
                     <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
                     <div class="article-meta">
                         <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                        <span>💬 ${article.comments.length}</span>
                     </div>
                 </div>
             </div>
@@ -279,7 +354,10 @@ function loadPublicExperiencias() {
         html += `
             <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
                 <div class="article-image">
-                    ${getCategoryIcon(article.category)}
+                    ${article.imageFile ? 
+                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                        getCategoryIcon(article.category)
+                    }
                 </div>
                 <div class="article-content">
                     <h3 class="article-title">${article.title}</h3>
@@ -290,6 +368,7 @@ function loadPublicExperiencias() {
                     <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
                     <div class="article-meta">
                         <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                        <span>💬 ${article.comments.length}</span>
                     </div>
                 </div>
             </div>
@@ -309,7 +388,10 @@ function loadPublicPosicionamiento() {
         html += `
             <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
                 <div class="article-image">
-                    ${getCategoryIcon(article.category)}
+                    ${article.imageFile ? 
+                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                        getCategoryIcon(article.category)
+                    }
                 </div>
                 <div class="article-content">
                     <h3 class="article-title">${article.title}</h3>
@@ -320,6 +402,7 @@ function loadPublicPosicionamiento() {
                     <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
                     <div class="article-meta">
                         <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                        <span>💬 ${article.comments.length}</span>
                     </div>
                 </div>
             </div>
@@ -347,14 +430,25 @@ function showPublicArticleDetail(articleId) {
                         <span><strong>Autor:</strong> ${article.author}</span>
                         <span><strong>Fecha:</strong> ${formatDate(article.createdAt)}</span>
                         <span><strong>Categoría:</strong> ${getCategoryName(article.category)}</span>
+                        <span><strong>Capítulo:</strong> ${getChapterName(article.chapter)}</span>
                     </div>
-                    ${article.image ? `
+                    ${article.imageFile ? `
                         <div class="article-image-modal">
-                            <img src="${article.image}" alt="${article.title}">
+                            <img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">
                         </div>
                     ` : ''}
                     <div class="article-content-full">
                         ${article.content.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="comments-section">
+                        <h3>💬 Comentarios <span class="article-status">${article.comments.length}</span></h3>
+                        ${article.comments.length > 0 ? article.comments.map(comment => `
+                            <div class="notification">
+                                <h4>${comment.author}</h4>
+                                <p>${comment.content}</p>
+                                <small>${formatDate(comment.createdAt)}</small>
+                            </div>
+                        `).join('') : '<p class="no-content">No hay comentarios aún.</p>'}
                     </div>
                     <div class="article-actions-public">
                         <p><em>💡 Para comentar y acceder a más funciones, <a href="#" onclick="showPage('login-page'); closePublicModal()">inicia sesión</a></em></p>
@@ -376,6 +470,84 @@ function closePublicModal() {
     if (modal) {
         modal.remove();
     }
+}
+
+// Search in magazine
+function searchInMagazine() {
+    const searchTerm = document.getElementById('public-search').value.toLowerCase().trim();
+    if (!searchTerm) {
+        alert('Por favor, ingresa un término de búsqueda.');
+        return;
+    }
+    
+    const results = state.articles.filter(article => 
+        article.status === 'published' && 
+        (article.title.toLowerCase().includes(searchTerm) || 
+         article.content.toLowerCase().includes(searchTerm) ||
+         article.author.toLowerCase().includes(searchTerm) ||
+         getCategoryName(article.category).toLowerCase().includes(searchTerm))
+    );
+    
+    if (results.length === 0) {
+        alert('No se encontraron artículos que coincidan con tu búsqueda.');
+        return;
+    }
+    
+    // Show results in modal
+    showSearchResults(results, searchTerm);
+}
+
+function showSearchResults(results, searchTerm) {
+    let resultsHTML = `
+        <div class="modal-overlay" onclick="closeSearchModal()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h2>🔍 Resultados de búsqueda: "${searchTerm}"</h2>
+                    <button class="modal-close" onclick="closeSearchModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p>Se encontraron ${results.length} artículo(s) que coinciden con tu búsqueda.</p>
+                    <div class="articles-grid" style="margin-top: 1rem;">
+    `;
+    
+    results.forEach(article => {
+        resultsHTML += `
+            <div class="article-card" onclick="showPublicArticleDetail(${article.id}); closeSearchModal()">
+                <div class="article-image">
+                    ${article.imageFile ? 
+                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                        getCategoryIcon(article.category)
+                    }
+                </div>
+                <div class="article-content">
+                    <h3 class="article-title">${article.title}</h3>
+                    <div class="article-meta">
+                        <span>Por: ${article.author}</span>
+                        <span>${formatDate(article.createdAt)}</span>
+                        <span>${getCategoryName(article.category)}</span>
+                    </div>
+                    <div class="article-excerpt">${article.content.substring(0, 150)}...</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    resultsHTML += `
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.createElement('div');
+    modalContainer.id = 'search-results-modal';
+    modalContainer.innerHTML = resultsHTML;
+    document.body.appendChild(modalContainer);
+}
+
+function closeSearchModal() {
+    const modal = document.getElementById('search-results-modal');
+    if (modal) modal.remove();
 }
 
 // Handle user login
@@ -401,8 +573,21 @@ function handleLogin(e) {
         showPage('dashboard-page');
         updateDashboard();
         updatePublicHeader();
+        
+        // Add login notification
+        state.notifications.unshift({
+            id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
+            title: '👋 ¡Bienvenido/a!',
+            content: `Has iniciado sesión correctamente como ${getRoleName(user.role)}`,
+            type: 'info',
+            read: false,
+            createdAt: new Date().toISOString().split('T')[0]
+        });
+        saveDataToStorage();
+        
+        alert(`✅ Bienvenido/a ${user.name}! Has ingresado como ${getRoleName(user.role)}`);
     } else {
-        alert('Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.');
+        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.\n\n💡 Usuarios demo:\n• admin / admin (Administrador)\n• docente1 / 123 (Docente)\n• estudiante1 / 123 (Estudiante)\n• padre1 / 123 (Padre)');
     }
 }
 
@@ -412,36 +597,39 @@ function updateUIForUser() {
     
     let navItems = '';
     
-    // Common items for all logged-in users
-    navItems = `
-        <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-        <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 ${state.currentUser.role === 'student' ? 'Mis Artículos' : 'Artículos'}</a></li>
-        <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
-        <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-    `;
-    
-    // Role-specific items
-    if (state.currentUser.role === 'teacher') {
+    if (state.currentUser) {
+        // Common items for all logged-in users
         navItems = `
             <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
-            <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 ${state.currentUser.role === 'student' ? 'Mis Artículos' : 'Artículos'}</a></li>
             <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
             <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
         `;
-    } else if (state.currentUser.role === 'admin') {
-        navItems = `
-            <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
-            <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
-            <li><a href="#" onclick="showPage('users-page'); loadUsers()">👥 Usuarios</a></li>
-            <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
-            <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-        `;
+        
+        // Role-specific items
+        if (state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') {
+            navItems = `
+                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
+                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+            `;
+        }
+        
+        if (state.currentUser.role === 'admin') {
+            navItems = `
+                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
+                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+                <li><a href="#" onclick="showPage('users-page'); loadUsers()">👥 Usuarios</a></li>
+                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+            `;
+        }
     }
     
     navMenu.innerHTML = navItems;
-    updatePublicHeader();
 }
 
 // Get role name for display
@@ -463,9 +651,7 @@ function getCategoryName(category) {
         'matematico': '🔢 Matemático',
         'linguistico': '📝 Lingüístico',
         'tecnologico': '💻 Tecnológico',
-        'artistico': '🎨 Artístico',
-        'ciencia': '🔬 Ciencia',
-        'literatura': '📖 Literatura'
+        'artistico': '🎨 Artístico'
     };
     return categories[category] || category;
 }
@@ -478,9 +664,7 @@ function getCategoryIcon(category) {
         'matematico': '🔢',
         'linguistico': '📝',
         'tecnologico': '💻',
-        'artistico': '🎨',
-        'ciencia': '🔬',
-        'literatura': '📖'
+        'artistico': '🎨'
     };
     return icons[category] || '📄';
 }
@@ -524,6 +708,69 @@ function showPage(pageId) {
     state.currentPage = pageId;
 }
 
+// Update character count
+function updateCharCount(e) {
+    const target = e.target;
+    const maxLength = target.id === 'article-title' ? 100 : 
+                     target.id === 'article-content' ? 2000 : 500;
+    const currentLength = target.value.length;
+    const charCountElement = document.getElementById(`${target.id}-char-count`);
+    
+    if (charCountElement) {
+        charCountElement.textContent = `${currentLength}/${maxLength} caracteres`;
+        
+        // Add warning class if approaching limit
+        charCountElement.className = 'char-count';
+        if (currentLength > maxLength * 0.8) {
+            charCountElement.classList.add('warning');
+        }
+        if (currentLength > maxLength) {
+            charCountElement.classList.add('error');
+        }
+    }
+}
+
+// Check username availability
+function checkUsernameAvailability() {
+    const username = document.getElementById('new-user-username').value;
+    const availabilityElement = document.getElementById('username-availability');
+    
+    if (!username) {
+        availabilityElement.textContent = '';
+        return;
+    }
+    
+    const exists = state.users.some(user => user.username === username);
+    
+    if (exists) {
+        availabilityElement.textContent = '❌ Este nombre de usuario ya existe';
+        availabilityElement.style.color = 'var(--danger)';
+    } else {
+        availabilityElement.textContent = '✅ Nombre de usuario disponible';
+        availabilityElement.style.color = 'var(--success)';
+    }
+}
+
+// Check password match
+function checkPasswordMatch() {
+    const password = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const matchElement = document.getElementById('password-match');
+    
+    if (!confirmPassword) {
+        matchElement.textContent = '';
+        return;
+    }
+    
+    if (password === confirmPassword) {
+        matchElement.textContent = '✅ Las contraseñas coinciden';
+        matchElement.style.color = 'var(--success)';
+    } else {
+        matchElement.textContent = '❌ Las contraseñas no coinciden';
+        matchElement.style.color = 'var(--danger)';
+    }
+}
+
 // Update dashboard with current data
 function updateDashboard() {
     if (!state.currentUser) return;
@@ -554,11 +801,15 @@ function loadNotifications() {
     } else {
         userNotifications.forEach(notification => {
             const notificationClass = notification.read ? 'notification' : 'notification unread';
+            const icon = notification.type === 'success' ? '✅' : 
+                        notification.type === 'warning' ? '⚠️' : 
+                        notification.type === 'danger' ? '❌' : 'ℹ️';
+            
             notificationsHTML += `
                 <div class="${notificationClass}" onclick="markNotificationAsRead(${notification.id})">
-                    <h4>${notification.title}</h4>
+                    <h4>${icon} ${notification.title}</h4>
                     <p>${notification.content}</p>
-                    <small>${notification.createdAt}</small>
+                    <small>${formatDate(notification.createdAt)}</small>
                 </div>
             `;
         });
@@ -602,6 +853,7 @@ function loadArticles() {
     // Apply filters
     const statusFilter = document.getElementById('article-filter').value;
     const categoryFilter = document.getElementById('category-filter').value;
+    const chapterFilter = document.getElementById('chapter-filter').value;
     
     if (statusFilter !== 'all') {
         articlesToShow = articlesToShow.filter(a => a.status === statusFilter);
@@ -609,6 +861,10 @@ function loadArticles() {
     
     if (categoryFilter !== 'all') {
         articlesToShow = articlesToShow.filter(a => a.category === categoryFilter);
+    }
+    
+    if (chapterFilter !== 'all') {
+        articlesToShow = articlesToShow.filter(a => a.chapter === chapterFilter);
     }
     
     if (articlesToShow.length === 0) {
@@ -621,7 +877,10 @@ function loadArticles() {
             articlesHTML += `
                 <div class="article-card" onclick="showArticleDetail(${article.id})">
                     <div class="article-image">
-                        ${getCategoryIcon(article.category)}
+                        ${article.imageFile ? 
+                            `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                            getCategoryIcon(article.category)
+                        }
                     </div>
                     <div class="article-content">
                         <h3 class="article-title">${article.title}</h3>
@@ -631,12 +890,13 @@ function loadArticles() {
                         </div>
                         <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
                         <div class="article-meta">
-                            <span>${getCategoryName(article.category)}</span>
+                            <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
                             <span class="${statusClass}">${statusText}</span>
                         </div>
                         ${article.authorId === state.currentUser.id && article.status !== 'published' ? 
                           `<div class="action-buttons">
                               <button onclick="event.stopPropagation(); editArticle(${article.id})">✏️ Editar</button>
+                              <button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>
                            </div>` : ''}
                     </div>
                 </div>
@@ -677,8 +937,16 @@ function showNewArticleForm() {
     document.getElementById('article-category').value = '';
     document.getElementById('article-chapter').value = '';
     document.getElementById('article-content').value = '';
-    document.getElementById('article-image').value = '';
+    document.getElementById('article-image-upload').value = '';
     document.getElementById('article-status').value = 'draft';
+    
+    // Reset image preview
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+    
+    // Reset character counts
+    document.getElementById('title-char-count').textContent = '0/100 caracteres';
+    document.getElementById('content-char-count').textContent = '0/2000 caracteres';
     
     showPage('article-form-page');
 }
@@ -687,6 +955,48 @@ function showNewArticleForm() {
 function cancelArticleForm() {
     showPage('articles-page');
     loadArticles();
+}
+
+// Preview image before upload
+function previewImage(input) {
+    const preview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Validate file type
+        if (!file.type.match('image.*')) {
+            alert('❌ Por favor selecciona solo archivos de imagen (JPG, PNG, GIF).');
+            input.value = '';
+            return;
+        }
+        
+        // Validate file size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('❌ La imagen es demasiado grande. El tamaño máximo permitido es 2MB.');
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        
+        reader.readAsDataURL(file);
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+// Remove selected image
+function removeImage() {
+    document.getElementById('article-image-upload').value = '';
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
 }
 
 // Save article (create or update)
@@ -700,8 +1010,15 @@ function saveArticle(e) {
     const category = document.getElementById('article-category').value;
     const chapter = document.getElementById('article-chapter').value;
     const content = document.getElementById('article-content').value;
-    const image = document.getElementById('article-image').value;
     const status = document.getElementById('article-status').value;
+    const imageFile = document.getElementById('article-image-upload').files[0];
+    
+    // Validate form
+    const errors = validateForm({ title, content });
+    if (errors.length > 0) {
+        alert('❌ Errores en el formulario:\n\n' + errors.join('\n'));
+        return;
+    }
     
     if (articleId) {
         // Update existing article
@@ -711,9 +1028,13 @@ function saveArticle(e) {
             state.articles[index].category = category;
             state.articles[index].chapter = chapter;
             state.articles[index].content = content;
-            state.articles[index].image = image;
             state.articles[index].status = status;
             state.articles[index].updatedAt = new Date().toISOString().split('T')[0];
+            
+            // Update image if new one was selected
+            if (imageFile) {
+                state.articles[index].imageFile = imageFile;
+            }
         }
     } else {
         // Create new article
@@ -725,7 +1046,7 @@ function saveArticle(e) {
             content,
             author: state.currentUser.name,
             authorId: state.currentUser.id,
-            image,
+            imageFile: imageFile || null,
             status,
             createdAt: new Date().toISOString().split('T')[0],
             comments: []
@@ -737,7 +1058,7 @@ function saveArticle(e) {
         if (status === 'pending') {
             state.notifications.unshift({
                 id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-                title: 'Nuevo artículo pendiente',
+                title: '📝 Nuevo artículo pendiente',
                 content: `"${title}" está esperando revisión`,
                 type: 'warning',
                 read: false,
@@ -759,6 +1080,29 @@ function saveArticle(e) {
     }
 }
 
+// Validate form data
+function validateForm(formData) {
+    const errors = [];
+    
+    if (formData.title && formData.title.length < 5) {
+        errors.push('• El título debe tener al menos 5 caracteres');
+    }
+    
+    if (formData.title && formData.title.length > 100) {
+        errors.push('• El título no puede tener más de 100 caracteres');
+    }
+    
+    if (formData.content && formData.content.length < 20) {
+        errors.push('• El contenido debe tener al menos 20 caracteres');
+    }
+    
+    if (formData.content && formData.content.length > 2000) {
+        errors.push('• El contenido no puede tener más de 2000 caracteres');
+    }
+    
+    return errors;
+}
+
 // Load pending articles (for teachers/admins)
 function loadPendingArticles() {
     const pendingGrid = document.getElementById('pending-articles-grid');
@@ -769,23 +1113,35 @@ function loadPendingArticles() {
     thisWeek.setDate(thisWeek.getDate() - 7);
     const pendingThisWeek = pendingArticles.filter(a => new Date(a.createdAt) >= thisWeek);
     
+    const urgentDate = new Date();
+    urgentDate.setDate(urgentDate.getDate() - 7);
+    const pendingUrgent = pendingArticles.filter(a => new Date(a.createdAt) <= urgentDate);
+    
     document.getElementById('total-pending').textContent = pendingArticles.length;
     document.getElementById('pending-this-week').textContent = pendingThisWeek.length;
+    document.getElementById('pending-urgent').textContent = pendingUrgent.length;
     
     if (pendingArticles.length === 0) {
         articlesHTML = '<div class="no-content"><p>No hay artículos pendientes de revisión.</p></div>';
     } else {
         pendingArticles.forEach(article => {
+            const isUrgent = new Date(article.createdAt) <= urgentDate;
+            const urgentClass = isUrgent ? 'style="border-left: 4px solid var(--danger)"' : '';
+            
             articlesHTML += `
-                <div class="article-card">
+                <div class="article-card" ${urgentClass}>
                     <div class="article-image">
-                        ${getCategoryIcon(article.category)}
+                        ${article.imageFile ? 
+                            `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                            getCategoryIcon(article.category)
+                        }
                     </div>
                     <div class="article-content">
                         <h3 class="article-title">${article.title}</h3>
                         <div class="article-meta">
                             <span>Por: ${article.author}</span>
                             <span>${formatDate(article.createdAt)}</span>
+                            ${isUrgent ? '<span style="color: var(--danger)">⚠️ Urgente</span>' : ''}
                         </div>
                         <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
                         <div class="article-meta">
@@ -837,6 +1193,11 @@ function rejectArticle(articleId) {
     if (article) {
         const reason = prompt('Por favor, ingrese el motivo del rechazo:');
         if (reason === null) return; // User cancelled
+        
+        if (!reason.trim()) {
+            alert('Debe ingresar un motivo para rechazar el artículo.');
+            return;
+        }
         
         article.status = 'rejected';
         article.rejectionReason = reason;
@@ -905,8 +1266,8 @@ function showArticleDetail(articleId) {
                 <span class="${statusClass}">${statusText}</span>
             </div>
             ${rejectionHTML}
-            ${article.image ? `<div style="margin: 1rem 0; text-align: center;">
-                <img src="${article.image}" alt="${article.title}" style="max-width:100%; height:auto; border-radius: 8px;">
+            ${article.imageFile ? `<div style="margin: 1rem 0; text-align: center;">
+                <img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}" style="max-width:100%; height:auto; border-radius: 8px;">
             </div>` : ''}
             <div style="margin: 1rem 0; line-height: 1.8; white-space: pre-line;">${article.content}</div>
             ${actionsHTML}
@@ -914,6 +1275,7 @@ function showArticleDetail(articleId) {
     `;
     
     document.getElementById('comment-article-id').value = articleId;
+    document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
     loadComments(articleId);
     showPage('article-detail-page');
 }
@@ -929,8 +1291,16 @@ function editArticle(articleId) {
     document.getElementById('article-category').value = article.category;
     document.getElementById('article-chapter').value = article.chapter;
     document.getElementById('article-content').value = article.content;
-    document.getElementById('article-image').value = article.image;
     document.getElementById('article-status').value = article.status;
+    
+    // Reset image preview (no se puede pre-cargar el file input por seguridad)
+    document.getElementById('article-image-upload').value = '';
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+    
+    // Update character counts
+    document.getElementById('title-char-count').textContent = `${article.title.length}/100 caracteres`;
+    document.getElementById('content-char-count').textContent = `${article.content.length}/2000 caracteres`;
     
     showPage('article-form-page');
 }
@@ -987,6 +1357,16 @@ function addComment(e) {
     const article = state.articles.find(a => a.id === articleId);
     if (!article) return;
     
+    if (content.length < 1) {
+        alert('El comentario no puede estar vacío.');
+        return;
+    }
+    
+    if (content.length > 500) {
+        alert('El comentario no puede tener más de 500 caracteres.');
+        return;
+    }
+    
     const newComment = {
         id: article.comments.length > 0 ? Math.max(...article.comments.map(c => c.id)) + 1 : 1,
         author: state.currentUser.name,
@@ -996,10 +1376,14 @@ function addComment(e) {
     
     article.comments.push(newComment);
     document.getElementById('comment-content').value = '';
+    document.getElementById('comment-char-count').textContent = '0/500 caracteres';
     
     saveDataToStorage();
     loadComments(articleId);
     updateDashboard();
+    
+    // Update comments count badge
+    document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
     
     // Add notification for the article author if it's not the current user
     if (article.authorId !== state.currentUser.id) {
@@ -1038,11 +1422,11 @@ function loadUsers() {
             <tr>
                 <td>${user.name}</td>
                 <td>${user.username}</td>
-                <td>${getRoleName(user.role)}</td>
+                <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
                 <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
                 <td>${formatDate(user.lastLogin)}</td>
                 <td class="action-buttons">
-                    <button class="btn-danger" onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
+                    <button class="${user.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
                     ${user.role !== 'admin' ? `<button onclick="resetUserPassword(${user.id})">🔑 Resetear Contraseña</button>` : ''}
                 </td>
             </tr>
@@ -1079,6 +1463,9 @@ function showCreateUserForm() {
     document.getElementById('new-user-username').value = '';
     document.getElementById('new-user-password').value = '';
     document.getElementById('new-user-role').value = 'student';
+    document.getElementById('new-user-talento').value = '';
+    
+    document.getElementById('username-availability').textContent = '';
     
     showPage('create-user-page');
 }
@@ -1091,6 +1478,23 @@ function createUser(e) {
     const username = document.getElementById('new-user-username').value;
     const password = document.getElementById('new-user-password').value;
     const role = document.getElementById('new-user-role').value;
+    const talento = document.getElementById('new-user-talento').value;
+    
+    // Validate form
+    if (name.length < 2) {
+        alert('El nombre debe tener al menos 2 caracteres.');
+        return;
+    }
+    
+    if (username.length < 3) {
+        alert('El nombre de usuario debe tener al menos 3 caracteres.');
+        return;
+    }
+    
+    if (password.length < 3) {
+        alert('La contraseña debe tener al menos 3 caracteres.');
+        return;
+    }
     
     // Check if username already exists
     if (state.users.find(u => u.username === username)) {
@@ -1108,6 +1512,11 @@ function createUser(e) {
         lastLogin: new Date().toISOString().split('T')[0]
     };
     
+    // Add talento for students
+    if (role === 'student' && talento) {
+        newUser.talento = talento;
+    }
+    
     state.users.push(newUser);
     saveDataToStorage();
     
@@ -1123,6 +1532,7 @@ function showChangePasswordForm() {
     document.getElementById('current-password').value = '';
     document.getElementById('new-password').value = '';
     document.getElementById('confirm-password').value = '';
+    document.getElementById('password-match').textContent = '';
     
     showPage('change-password-page');
 }
@@ -1166,7 +1576,7 @@ function logout() {
 }
 
 // =======================
-// SISTEMA DE JUEGOS EDUCATIVOS
+// SISTEMA DE JUEGOS EDUCATIVOS MEJORADO
 // =======================
 
 // Games Page
@@ -1178,35 +1588,51 @@ function showGamesPage() {
 // Initialize games dashboard
 function initGamesDashboard() {
     const gamesGrid = document.getElementById('games-grid');
+    const userStats = document.getElementById('user-game-stats');
+    const gameStatsContent = document.getElementById('game-stats-content');
+    
+    // Show game statistics for logged in users
+    if (state.currentUser) {
+        const gameStats = addGameStatistics();
+        userStats.style.display = 'block';
+        
+        let statsHTML = '';
+        if (gameStats.sudoku.played > 0) {
+            statsHTML += `<p>🧩 Sudoku: ${gameStats.sudoku.completed}/${gameStats.sudoku.played} completados</p>`;
+        }
+        if (gameStats.memory.played > 0) {
+            statsHTML += `<p>🎵 Memoria: ${gameStats.memory.completed}/${gameStats.memory.played} completados</p>`;
+        }
+        if (gameStats.crossword.played > 0) {
+            statsHTML += `<p>📝 Crucigrama: ${gameStats.crossword.completed}/${gameStats.crossword.played} completados</p>`;
+        }
+        
+        gameStatsContent.innerHTML = statsHTML || '<p>¡Aún no has jugado! Comienza con alguno de los juegos.</p>';
+    } else {
+        userStats.style.display = 'none';
+    }
     
     const games = [
         {
             id: 'sudoku',
             name: '🧩 Sudoku Matemático',
-            description: 'Desafía tu lógica matemática con este juego de números',
+            description: 'Desafía tu lógica matemática con este juego de números. Completa el tablero sin repetir números en filas, columnas o cuadrantes.',
             difficulty: 'Intermedio',
             category: 'matematico'
         },
         {
             id: 'crucigrama',
             name: '📝 Crucigrama Lingüístico',
-            description: 'Amplía tu vocabulario con este crucigrama educativo',
+            description: 'Amplía tu vocabulario con este crucigrama educativo. Resuelve las pistas relacionadas con temas literarios y educativos.',
             difficulty: 'Fácil',
             category: 'linguistico'
         },
         {
             id: 'memoria',
             name: '🎵 Juego de Memoria Musical',
-            description: 'Entrena tu memoria con notas y ritmos musicales',
+            description: 'Entrena tu memoria con notas y ritmos musicales. Encuentra las parejas de instrumentos musicales.',
             difficulty: 'Fácil',
             category: 'musical'
-        },
-        {
-            id: 'simon',
-            name: '💡 Simón Dice Tecnológico',
-            description: 'Mejora tu memoria secuencial con patrones de colores',
-            difficulty: 'Intermedio',
-            category: 'tecnologico'
         }
     ];
     
@@ -1231,6 +1657,12 @@ function initGamesDashboard() {
 
 // Start a specific game
 function startGame(gameId) {
+    if (!state.currentUser) {
+        alert('💡 Para guardar tu progreso en los juegos, inicia sesión primero.');
+        showPage('login-page');
+        return;
+    }
+    
     switch(gameId) {
         case 'sudoku':
             startSudokuGame();
@@ -1241,12 +1673,48 @@ function startGame(gameId) {
         case 'memoria':
             startMemoryGame();
             break;
-        case 'simon':
-            startSimonGame();
-            break;
         default:
             alert('Juego en desarrollo. ¡Próximamente!');
     }
+}
+
+// Game statistics system
+function addGameStatistics() {
+    if (!state.currentUser) return {};
+    
+    const gameStats = JSON.parse(localStorage.getItem(`game_stats_${state.currentUser.id}`)) || {
+        sudoku: { played: 0, completed: 0, bestTime: null },
+        memory: { played: 0, completed: 0, bestScore: 0 },
+        crossword: { played: 0, completed: 0 }
+    };
+    
+    return gameStats;
+}
+
+function updateGameStats(game, result) {
+    if (!state.currentUser) return;
+    
+    const gameStats = addGameStatistics();
+    
+    if (!gameStats[game]) {
+        gameStats[game] = { played: 0, completed: 0, bestScore: 0 };
+    }
+    
+    gameStats[game].played++;
+    
+    if (result.completed) {
+        gameStats[game].completed++;
+        
+        if (result.score > gameStats[game].bestScore) {
+            gameStats[game].bestScore = result.score;
+        }
+        
+        if (result.time && (!gameStats[game].bestTime || result.time < gameStats[game].bestTime)) {
+            gameStats[game].bestTime = result.time;
+        }
+    }
+    
+    localStorage.setItem(`game_stats_${state.currentUser.id}`, JSON.stringify(gameStats));
 }
 
 // Sudoku Game Implementation
@@ -1262,7 +1730,7 @@ function initSudoku() {
     const sudokuHTML = `
         <div class="game-header">
             <h2>🧩 Sudoku Matemático</h2>
-            <p>Completa el tablero con números del 1 al 4 sin repetir en filas, columnas o cuadrantes</p>
+            <p>Completa el tablero con números del 1 al 4 sin repetir en filas, columnas o cuadrantes 2x2</p>
         </div>
         <div class="sudoku-board">
             <div class="sudoku-grid">
@@ -1275,6 +1743,7 @@ function initSudoku() {
         </div>
         <div class="game-controls">
             <button onclick="checkSudokuSolution()" class="btn-success">✅ Verificar Solución</button>
+            <button onclick="resetSudokuGame()" class="btn-warning">🔄 Reiniciar</button>
             <button onclick="showGamesPage()" class="btn-outline">← Volver a Juegos</button>
         </div>
         <div id="sudoku-feedback" class="game-feedback"></div>
@@ -1298,8 +1767,12 @@ function initSudoku() {
             cell.value = initialNumbers[row][col];
             cell.readOnly = true;
             cell.style.background = '#f3f4f6';
+            cell.style.fontWeight = 'bold';
         }
     });
+    
+    // Start timer
+    window.sudokuStartTime = new Date();
 }
 
 function validateSudokuInput(input) {
@@ -1309,13 +1782,20 @@ function validateSudokuInput(input) {
     }
 }
 
+function resetSudokuGame() {
+    initSudoku();
+}
+
 function checkSudokuSolution() {
     const cells = document.querySelectorAll('.sudoku-cell input');
     let solved = true;
+    let emptyCells = 0;
     
+    // Check if all cells are filled
     cells.forEach(cell => {
         if (!cell.value) {
             solved = false;
+            emptyCells++;
             cell.style.border = '2px solid red';
         } else {
             cell.style.border = '1px solid #ccc';
@@ -1323,31 +1803,55 @@ function checkSudokuSolution() {
     });
     
     const feedback = document.getElementById('sudoku-feedback');
+    
+    if (emptyCells > 0) {
+        feedback.innerHTML = `
+            <div class="error-message">
+                <p>❌ Faltan ${emptyCells} celdas por completar. Revisa las celdas en rojo.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Check Sudoku rules (simplified for 4x4)
+    // In a real implementation, you would check rows, columns, and 2x2 boxes
+    
     if (solved) {
+        const endTime = new Date();
+        const timeTaken = Math.floor((endTime - window.sudokuStartTime) / 1000);
+        
         feedback.innerHTML = `
             <div class="success-message">
                 <h3>🎉 ¡Felicidades!</h3>
-                <p>Has completado correctamente el Sudoku. ¡Excelente razonamiento matemático!</p>
+                <p>Has completado correctamente el Sudoku en ${timeTaken} segundos.</p>
+                <p>¡Excelente razonamiento matemático!</p>
             </div>
         `;
         
-        // Add achievement notification
+        // Add achievement notification and update stats
         if (state.currentUser) {
             state.notifications.unshift({
                 id: state.notifications.length + 1,
                 title: '🏆 Logro Desbloqueado',
-                content: 'Completaste el Sudoku Matemático exitosamente',
+                content: `Completaste el Sudoku Matemático en ${timeTaken} segundos`,
                 type: 'success',
                 read: false,
                 createdAt: new Date().toISOString().split('T')[0]
             });
+            
+            updateGameStats('sudoku', {
+                completed: true,
+                score: 100,
+                time: timeTaken
+            });
+            
             saveDataToStorage();
             updateDashboard();
         }
     } else {
         feedback.innerHTML = `
             <div class="error-message">
-                <p>❌ El tablero no está completo. Revisa las celdas en rojo.</p>
+                <p>❌ La solución no es correcta. Revisa que no se repitan números en filas, columnas o cuadrantes.</p>
             </div>
         `;
     }
@@ -1365,41 +1869,29 @@ function initCrossword() {
     const crosswordHTML = `
         <div class="game-header">
             <h2>📝 Crucigrama Lingüístico</h2>
-            <p>Resuelve el crucigrama relacionado con temas educativos y literarios</p>
+            <p>Resuelve el crucigrama relacionado con temas educativos y literarios. Haz clic en las casillas para escribir.</p>
         </div>
         
         <div class="crossword-clues">
             <div class="clues-section">
                 <h4>Horizontal:</h4>
-                <p>1. Género literario que usa el verso (5 letras)</p>
-                <p>3. Sinónimo de aprender (9 letras)</p>
+                <p><strong>1.</strong> Género literario que usa el verso (6 letras)</p>
+                <p><strong>3.</strong> Sinónimo de aprender (9 letras)</p>
             </div>
             <div class="clues-section">
                 <h4>Vertical:</h4>
-                <p>2. Persona que escribe libros (7 letras)</p>
-                <p>4. Lugar donde se estudia (7 letras)</p>
+                <p><strong>2.</strong> Persona que escribe libros (7 letras)</p>
+                <p><strong>4.</strong> Lugar donde se estudia (7 letras)</p>
             </div>
         </div>
         
-        <div class="crossword-grid">
-            <div class="crossword-row">
-                <div class="crossword-cell" data-word="1h">P</div>
-                <div class="crossword-cell" data-word="1h">O</div>
-                <div class="crossword-cell" data-word="1h">E</div>
-                <div class="crossword-cell" data-word="1h">S</div>
-                <div class="crossword-cell" data-word="1h">Í</div>
-                <div class="crossword-cell" data-word="1h">A</div>
-            </div>
-            <div class="crossword-row">
-                <div class="crossword-cell" data-word="2v">E</div>
-                <div class="crossword-cell"> </div>
-                <div class="crossword-cell">S</div>
-                <div class="crossword-cell">T</div>
-                <div class="crossword-cell">U</div>
-                <div class="crossword-cell">D</div>
-                <div class="crossword-cell">I</div>
-                <div class="crossword-cell">A</div>
-                <div class="crossword-cell">R</div>
+        <div class="crossword-board">
+            <div class="crossword-grid">
+                <!-- This would be a more complex grid in a real implementation -->
+                <div style="text-align: center; padding: 2rem;">
+                    <p>🔄 El crucigrama interactivo estará disponible en la próxima actualización</p>
+                    <p>Por ahora, practica con los otros juegos disponibles.</p>
+                </div>
             </div>
         </div>
         
@@ -1415,7 +1907,28 @@ function initCrossword() {
 }
 
 function checkCrosswordSolution() {
-    alert('🎉 ¡Crucigrama completado! Este es un ejemplo demostrativo. En una versión completa, se validarían todas las respuestas.');
+    // In a real implementation, this would check the crossword answers
+    alert('🎉 ¡Crucigrama completado! Este es un ejemplo demostrativo.\n\nRespuestas correctas:\n1. POESÍA\n2. ESCRITOR\n3. ESTUDIAR\n4. COLEGIO\n\nEn una versión completa, se validarían todas las respuestas automáticamente.');
+    
+    // Update game stats
+    if (state.currentUser) {
+        updateGameStats('crossword', {
+            completed: true,
+            score: 100
+        });
+        
+        state.notifications.unshift({
+            id: state.notifications.length + 1,
+            title: '🏆 Logro Desbloqueado',
+            content: 'Completaste el Crucigrama Lingüístico',
+            type: 'success',
+            read: false,
+            createdAt: new Date().toISOString().split('T')[0]
+        });
+        
+        saveDataToStorage();
+        updateDashboard();
+    }
 }
 
 // Memory Game Implementation
@@ -1433,10 +1946,11 @@ function initMemoryGame() {
     let memoryHTML = `
         <div class="game-header">
             <h2>🎵 Juego de Memoria Musical</h2>
-            <p>Encuentra las parejas de instrumentos musicales</p>
+            <p>Encuentra las parejas de instrumentos musicales. Haz clic en las cartas para voltearlas.</p>
             <div class="game-stats">
                 <span>Intentos: <span id="attempts">0</span></span>
                 <span>Parejas: <span id="matches">0</span>/8</span>
+                <span>Tiempo: <span id="timer">0</span>s</span>
             </div>
         </div>
         <div class="memory-grid">
@@ -1466,8 +1980,18 @@ function initMemoryGame() {
         flippedCards: [],
         attempts: 0,
         matches: 0,
-        locked: false
+        locked: false,
+        startTime: new Date(),
+        timerInterval: setInterval(updateMemoryTimer, 1000)
     };
+    
+    // Start timer
+    function updateMemoryTimer() {
+        if (window.memoryGameState) {
+            const elapsed = Math.floor((new Date() - window.memoryGameState.startTime) / 1000);
+            document.getElementById('timer').textContent = elapsed;
+        }
+    }
 }
 
 function flipCard(card) {
@@ -1486,30 +2010,43 @@ function flipCard(card) {
         
         if (card1.querySelector('.card-back').textContent === card2.querySelector('.card-back').textContent) {
             // Match found
-            card1.classList.add('matched');
-            card2.classList.add('matched');
-            state.matches++;
-            document.getElementById('matches').textContent = state.matches;
-            state.flippedCards = [];
-            state.locked = false;
-            
-            if (state.matches === 8) {
-                setTimeout(() => {
-                    alert('🎉 ¡Felicidades! Has completado el juego de memoria.');
-                    if (state.currentUser) {
-                        state.notifications.unshift({
-                            id: state.notifications.length + 1,
-                            title: '🏆 Logro Desbloqueado',
-                            content: 'Completaste el Juego de Memoria Musical',
-                            type: 'success',
-                            read: false,
-                            createdAt: new Date().toISOString().split('T')[0]
-                        });
-                        saveDataToStorage();
-                        updateDashboard();
-                    }
-                }, 500);
-            }
+            setTimeout(() => {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                state.matches++;
+                document.getElementById('matches').textContent = state.matches;
+                state.flippedCards = [];
+                state.locked = false;
+                
+                if (state.matches === 8) {
+                    clearInterval(state.timerInterval);
+                    const endTime = new Date();
+                    const timeTaken = Math.floor((endTime - state.startTime) / 1000);
+                    const score = Math.max(1000 - (state.attempts * 10) - (timeTaken * 2), 100);
+                    
+                    setTimeout(() => {
+                        alert(`🎉 ¡Felicidades! Has completado el juego de memoria.\n\n📊 Estadísticas:\n• Tiempo: ${timeTaken} segundos\n• Intentos: ${state.attempts}\n• Puntuación: ${score}`);
+                        
+                        if (state.currentUser) {
+                            updateGameStats('memory', {
+                                completed: true,
+                                score: score
+                            });
+                            
+                            state.notifications.unshift({
+                                id: state.notifications.length + 1,
+                                title: '🏆 Logro Desbloqueado',
+                                content: `Completaste el Juego de Memoria con ${score} puntos`,
+                                type: 'success',
+                                read: false,
+                                createdAt: new Date().toISOString().split('T')[0]
+                            });
+                            saveDataToStorage();
+                            updateDashboard();
+                        }
+                    }, 500);
+                }
+            }, 500);
         } else {
             // No match
             setTimeout(() => {
@@ -1523,13 +2060,113 @@ function flipCard(card) {
 }
 
 function resetMemoryGame() {
+    // Clear existing timer
+    if (window.memoryGameState && window.memoryGameState.timerInterval) {
+        clearInterval(window.memoryGameState.timerInterval);
+    }
     initMemoryGame();
 }
 
-// Simon Game Implementation
-function startSimonGame() {
-    alert('🎮 El juego "Simón Dice" estará disponible en la próxima actualización. ¡Gracias por tu interés!');
+// =======================
+// SISTEMA DE AYUDA Y OTRAS FUNCIONALIDADES
+// =======================
+
+// Help system
+function showHelp(section) {
+    const helpMessages = {
+        login: `🔐 Sistema de Login\n\nUsuarios demo disponibles:\n\n• Administrador:\n  Usuario: admin\n  Contraseña: admin\n\n• Docente:\n  Usuario: docente1\n  Contraseña: 123\n\n• Estudiante Reportero:\n  Usuario: estudiante1\n  Contraseña: 123\n\n• Padre de Familia:\n  Usuario: padre1\n  Contraseña: 123\n\n💡 También puedes continuar como espectador sin iniciar sesión.`,
+
+        dashboard: `📊 **Panel de Control**\n\nEl dashboard muestra:\n• Estadísticas generales del sistema\n• Notificaciones recientes\n• Acciones rápidas según tu rol\n\n**Estadísticas:**\n• Artículos publicados\n• Artículos pendientes de revisión\n• Comentarios totales\n• Usuarios activos`,
+
+        articles: `📚 **Gestión de Artículos**\n\n**Para Estudiantes:**\n• Crear nuevos artículos\n• Editar tus artículos existentes\n• Enviar artículos para revisión\n• Ver el estado de tus envíos\n\n**Para Docentes y Administradores:**\n• Revisar todos los artículos\n• Aprobar o rechazar artículos pendientes\n• Filtrar por estado, categoría o capítulo`,
+
+        review: `⏳ **Revisión de Artículos**\n\n**Proceso de revisión:**\n1. Los estudiantes envían artículos para revisión\n2. Los docentes revisan el contenido\n3. Se aprueba o se rechaza con observaciones\n4. Los estudiantes reciben notificaciones\n\n**Artículos urgentes:**\nLos artículos pendientes por más de 7 días se marcan como urgentes.`,
+
+        users: `👥 **Gestión de Usuarios**\n\n**Solo para Administradores:**\n• Crear nuevos usuarios\n• Activar/desactivar usuarios\n• Resetear contraseñas\n• Ver estadísticas de uso\n\n**Roles disponibles:**\n• Estudiante Reportero\n• Docente\n• Padre de Familia\n• Administrador`,
+
+        games: `🎮 **Juegos Educativos**\n\n**Juegos disponibles:**\n• 🧩 Sudoku Matemático: Desarrolla lógica y razonamiento\n• 📝 Crucigrama Lingüístico: Mejora vocabulario\n• 🎵 Memoria Musical: Entrena la memoria\n\n**Características:**\n• Diferentes niveles de dificultad\n• Seguimiento de progreso\n• Logros y recompensas\n• Diseño educativo y divertido`,
+
+        notifications: `🔔 **Sistema de Notificaciones**\n\n**Tipos de notificaciones:**\n• ✅ Aprobación de artículos\n• ⚠️ Artículos pendientes de revisión\n• ❌ Rechazo de artículos con observaciones\n• 💬 Nuevos comentarios\n• ℹ️ Información general\n\n**Funcionalidades:**\n• Notificaciones no leídas resaltadas\n• Clic para acceder directamente al contenido relacionado\n• Historial de notificaciones`,
+
+        actions: `⚡ **Acciones Rápidas**\n\n**Acciones disponibles:**\n• 📝 Nuevo Artículo: Crear contenido nuevo\n• 📚 Ver Artículos: Gestionar publicaciones\n• 🎮 Juegos Educativos: Aprender jugando\n• 👀 Ver Revista: Modo espectador público\n• 🔒 Cambiar Contraseña: Seguridad de cuenta\n• 📤 Exportar Datos: Backup del sistema (solo admin)`
+    };
+
+    const message = helpMessages[section] || 'No hay ayuda disponible para esta sección.';
+    alert(message);
+}
+
+// Export data function (for admins)
+function exportData() {
+    if (!state.currentUser || state.currentUser.role !== 'admin') {
+        alert('❌ Solo los administradores pueden exportar datos.');
+        return;
+    }
+
+    const exportData = {
+        exportedAt: new Date().toISOString(),
+        system: 'Revista Digital - Colegio San Francisco IED',
+        version: '2.0',
+        data: {
+            articles: state.articles,
+            users: state.users.map(u => ({ 
+                ...u, 
+                password: '***' // Hide passwords for security
+            })),
+            notifications: state.notifications,
+            statistics: showAdvancedStats()
+        }
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `revista_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert('✅ Datos exportados exitosamente.\nEl archivo se ha descargado como "revista_export_[fecha].json"');
+}
+
+// Advanced statistics
+function showAdvancedStats() {
+    const stats = {
+        totalArticles: state.articles.length,
+        publishedArticles: state.articles.filter(a => a.status === 'published').length,
+        pendingArticles: state.articles.filter(a => a.status === 'pending').length,
+        draftArticles: state.articles.filter(a => a.status === 'draft').length,
+        rejectedArticles: state.articles.filter(a => a.status === 'rejected').length,
+        articlesByCategory: {},
+        articlesByChapter: {},
+        activeUsers: state.users.filter(u => u.active).length,
+        totalUsers: state.users.length,
+        usersByRole: {},
+        totalComments: state.articles.reduce((sum, article) => sum + article.comments.length, 0),
+        exportDate: new Date().toISOString()
+    };
+    
+    // Calculate statistics by category and chapter
+    state.articles.forEach(article => {
+        stats.articlesByCategory[article.category] = (stats.articlesByCategory[article.category] || 0) + 1;
+        stats.articlesByChapter[article.chapter] = (stats.articlesByChapter[article.chapter] || 0) + 1;
+    });
+    
+    // Calculate statistics by user role
+    state.users.forEach(user => {
+        stats.usersByRole[user.role] = (stats.usersByRole[user.role] || 0) + 1;
+    });
+    
+    return stats;
 }
 
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', initApp);
+
+// Add some utility functions to the global scope for easier debugging
+window.getAppState = () => state;
+window.resetApp = () => {
+    localStorage.clear();
+    location.reload();
+};

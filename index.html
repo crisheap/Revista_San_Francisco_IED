@@ -3,9 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Revista Digital del Colegio San Francisco IED - Programa Talentos y Capacidades Excepcionales">
     <link rel="stylesheet" href="styles.css">
     <script defer src="script.js"></script>
     <title>Revista Digital - Colegio San Francisco IED</title>
+    <!-- PWA Meta Tags -->
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Revista CSF">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="msapplication-TileColor" content="#1e3a8a">
+<meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
+<meta name="msapplication-config" content="/browserconfig.xml">
+
+<!-- Apple Touch Icons -->
+<link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167x167.png">
+
+<!-- Manifest -->
+<link rel="manifest" href="/manifest.json">
+
+<!-- Service Worker Registration -->
+<script>
+    // Registrar Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function(registration) {
+                    console.log('✅ ServiceWorker registrado correctamente: ', registration.scope);
+                    
+                    // Verificar actualizaciones
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        console.log('🔄 Nueva versión del Service Worker encontrada');
+                        
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('📦 Nueva versión disponible. Recarga para actualizar.');
+                                showUpdateNotification();
+                            }
+                        });
+                    });
+                })
+                .catch(function(error) {
+                    console.log('❌ Error registrando ServiceWorker: ', error);
+                });
+        });
+
+        // Escuchar mensajes del Service Worker
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+                showUpdateNotification();
+            }
+        });
+    }
+
+    // Mostrar notificación de actualización
+    function showUpdateNotification() {
+        if (confirm('🎉 Hay una nueva versión disponible. ¿Quieres actualizar ahora?')) {
+            window.location.reload();
+        }
+    }
+
+    // Verificar conexión
+    function updateOnlineStatus() {
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) {
+            if (navigator.onLine) {
+                statusElement.style.display = 'none';
+            } else {
+                statusElement.style.display = 'block';
+                statusElement.textContent = '🌐 Sin conexión - Modo offline activado';
+            }
+        }
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+</script>
 </head>
 <body>
     <!-- Header Público (visible para todos) -->
@@ -21,12 +100,13 @@
                 </div>
                 <nav>
                     <ul id="nav-menu">
-                        <li><a href="#" onclick="showPublicMagazine()"></a></li>
-                        <li><a href="#" onclick="showPage('login-page')"></a></li>
+                        <li><a href="#" onclick="showPublicMagazine()">🏠</a></li>
+                        <li><a href="#" onclick="showPage('login-page')">🔐</a></li>
                     </ul>
                 </nav>
                 <div class="user-info" id="user-info">
-                    <button onclick="showPublicMagazine()" class="btn-outline">Modo Espectador</button>
+                    <button onclick="showPublicMagazine()" class="btn-outline">👀 Ver Revista</button>
+                    <button onclick="showPage('login-page')">🔐 Ingresar</button>
                 </div>
             </div>
         </div>
@@ -38,6 +118,11 @@
             <div class="magazine-header">
                 <h1>Revista Anual 2025 - Programa Talentos</h1>
                 <p class="magazine-subtitle">Capacidades Excepcionales - Colegio San Francisco IED</p>
+                <div class="search-container">
+                    <input type="text" id="public-search" placeholder="🔍 Buscar artículos, autores..." 
+                           onkeypress="if(event.key === 'Enter') searchInMagazine()">
+                    <button onclick="searchInMagazine()">Buscar</button>
+                </div>
             </div>
 
             <!-- Portada -->
@@ -48,7 +133,7 @@
                 </div>
                 <div class="editorial-content">
                     <div class="editorial-card">
-                        <h3>Palabras de la Directora</h3>
+                        <h3>Palabras de la Coordinadora</h3>
                         <div class="editorial-meta">
                             <span>Por: Angie Granados</span>
                             <span>Coordinadora Programa Talentos</span>
@@ -94,6 +179,46 @@
                 </div>
             </section>
 
+            <!-- Sección de Juegos Públicos -->
+            <section class="chapter" id="juegos-publicos">
+                <div class="chapter-header">
+                    <h2>🎮 Juegos Educativos</h2>
+                    <span class="chapter-badge">Interactivo</span>
+                </div>
+                <div class="games-grid" id="public-games-grid">
+                    <div class="game-card" onclick="showGamesPage()">
+                        <div class="game-icon">🧩</div>
+                        <h3>Sudoku Matemático</h3>
+                        <p>Desafía tu lógica con números y ejercita tu mente</p>
+                        <div class="game-meta">
+                            <span class="difficulty-badge intermedio">Intermedio</span>
+                            <span class="game-category">🔢 Matemático</span>
+                        </div>
+                        <button class="btn-play">🎮 Jugar Ahora</button>
+                    </div>
+                    <div class="game-card" onclick="showGamesPage()">
+                        <div class="game-icon">📝</div>
+                        <h3>Crucigrama Lingüístico</h3>
+                        <p>Amplía tu vocabulario con palabras educativas</p>
+                        <div class="game-meta">
+                            <span class="difficulty-badge facil">Fácil</span>
+                            <span class="game-category">📝 Lingüístico</span>
+                        </div>
+                        <button class="btn-play">🎮 Jugar Ahora</button>
+                    </div>
+                    <div class="game-card" onclick="showGamesPage()">
+                        <div class="game-icon">🎵</div>
+                        <h3>Memoria Musical</h3>
+                        <p>Encuentra parejas de instrumentos musicales</p>
+                        <div class="game-meta">
+                            <span class="difficulty-badge facil">Fácil</span>
+                            <span class="game-category">🎵 Musical</span>
+                        </div>
+                        <button class="btn-play">🎮 Jugar Ahora</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- Cierre y Créditos -->
             <section class="chapter" id="cierre">
                 <div class="chapter-header">
@@ -134,6 +259,7 @@
                 <div class="login-header">
                     <h2>Acceso al Sistema</h2>
                     <p>Revista Digital - Gestión de Contenidos</p>
+                    <button class="btn-help" onclick="showHelp('login')">❓ Ayuda</button>
                 </div>
                 <form id="login-form">
                     <div class="form-group">
@@ -158,6 +284,7 @@
                 </form>
                 <div class="login-footer">
                     <p>¿No tienes cuenta? <a href="#" onclick="showPublicMagazine()">Continúa como espectador</a></p>
+                    <p><small>Usuarios demo: admin/admin, docente1/123, estudiante1/123, padre1/123</small></p>
                 </div>
             </div>
         </div>
@@ -168,6 +295,7 @@
                 <h2 class="page-title">Panel Principal</h2>
                 <div class="user-welcome">
                     Bienvenido/a, <span id="welcome-user-name"></span>
+                    <button class="btn-help" onclick="showHelp('dashboard')">❓</button>
                 </div>
             </div>
             
@@ -195,14 +323,18 @@
             </div>
             
             <div class="dashboard-section">
-                <h3>Notificaciones Recientes</h3>
+                <h3>Notificaciones Recientes 
+                    <button class="btn-help" onclick="showHelp('notifications')">❓</button>
+                </h3>
                 <div id="notifications-list" class="notifications-container">
                     <!-- Notifications will be populated by JavaScript -->
                 </div>
             </div>
 
             <div class="dashboard-section">
-                <h3>Acciones Rápidas</h3>
+                <h3>Acciones Rápidas 
+                    <button class="btn-help" onclick="showHelp('actions')">❓</button>
+                </h3>
                 <div class="quick-actions">
                     <button class="btn-action" onclick="showNewArticleForm()">
                         <span>📝</span>
@@ -224,6 +356,10 @@
                         <span>🔒</span>
                         <span>Cambiar Contraseña</span>
                     </button>
+                    <button class="btn-action" onclick="exportData()" id="export-btn" style="display: none;">
+                        <span>📤</span>
+                        <span>Exportar Datos</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -235,6 +371,7 @@
                 <div class="page-actions">
                     <button id="new-article-btn" class="btn-success">➕ Nuevo Artículo</button>
                     <button onclick="showPublicMagazine()" class="btn-outline">👀 Ver Revista Pública</button>
+                    <button class="btn-help" onclick="showHelp('articles')">❓</button>
                 </div>
             </div>
             
@@ -244,6 +381,7 @@
                     <option value="published">Publicados</option>
                     <option value="pending">Pendientes</option>
                     <option value="draft">Borradores</option>
+                    <option value="rejected">Rechazados</option>
                 </select>
                 <select id="category-filter" onchange="filterArticles()">
                     <option value="all">Todas las categorías</option>
@@ -253,6 +391,12 @@
                     <option value="linguistico">Lingüístico</option>
                     <option value="tecnologico">Tecnológico</option>
                     <option value="artistico">Artístico</option>
+                </select>
+                <select id="chapter-filter" onchange="filterArticles()">
+                    <option value="all">Todos los capítulos</option>
+                    <option value="portafolios">Portafolios</option>
+                    <option value="experiencias">Experiencias</option>
+                    <option value="posicionamiento">Posicionamiento</option>
                 </select>
             </div>
             
@@ -276,6 +420,7 @@
                         <div class="form-group">
                             <label for="article-title">Título del Artículo</label>
                             <input type="text" id="article-title" required placeholder="Ingrese un título atractivo">
+                            <small class="char-count" id="title-char-count">0/100 caracteres</small>
                         </div>
                         
                         <div class="form-group">
@@ -315,11 +460,17 @@
                     <div class="form-group">
                         <label for="article-content">Contenido del Artículo</label>
                         <textarea id="article-content" required placeholder="Desarrolle aquí el contenido de su artículo..."></textarea>
+                        <small class="char-count" id="content-char-count">0/2000 caracteres</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="article-image">URL de Imagen (opcional)</label>
-                        <input type="text" id="article-image" placeholder="https://ejemplo.com/imagen.jpg">
+                        <label for="article-image-upload">Subir Imagen</label>
+                        <input type="file" id="article-image-upload" accept="image/*" onchange="previewImage(this)">
+                        <small>Formatos aceptados: JPG, PNG, GIF (Máx. 2MB)</small>
+                        <div id="image-preview" class="image-preview" style="display: none;">
+                            <img id="preview-img" src="" alt="Vista previa">
+                            <button type="button" onclick="removeImage()" class="btn-danger">❌ Eliminar</button>
+                        </div>
                     </div>
                     
                     <div class="form-actions">
@@ -334,7 +485,10 @@
         <div id="pending-articles-page" class="page">
             <div class="page-header">
                 <h2 class="page-title">Artículos Pendientes de Revisión</h2>
-                <button onclick="showPage('dashboard-page')" class="btn-outline">← Volver al Dashboard</button>
+                <div class="page-actions">
+                    <button onclick="showPage('dashboard-page')" class="btn-outline">← Volver al Dashboard</button>
+                    <button class="btn-help" onclick="showHelp('review')">❓</button>
+                </div>
             </div>
             
             <div class="pending-stats">
@@ -345,6 +499,10 @@
                 <div class="stat-item">
                     <span class="stat-number" id="pending-this-week">0</span>
                     <span class="stat-label">Esta Semana</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="pending-urgent">0</span>
+                    <span class="stat-label">Urgentes (>7 días)</span>
                 </div>
             </div>
             
@@ -360,6 +518,7 @@
                 <div class="page-actions">
                     <button onclick="showCreateUserForm()" class="btn-success">➕ Nuevo Usuario</button>
                     <button onclick="showPage('dashboard-page')" class="btn-outline">← Dashboard</button>
+                    <button class="btn-help" onclick="showHelp('users')">❓</button>
                 </div>
             </div>
             
@@ -416,6 +575,7 @@
                         <div class="form-group">
                             <label for="new-user-username">Nombre de Usuario</label>
                             <input type="text" id="new-user-username" required>
+                            <small id="username-availability"></small>
                         </div>
                     </div>
                     
@@ -423,6 +583,7 @@
                         <div class="form-group">
                             <label for="new-user-password">Contraseña</label>
                             <input type="password" id="new-user-password" required>
+                            <small>Mínimo 3 caracteres</small>
                         </div>
                         <div class="form-group">
                             <label for="new-user-role">Rol</label>
@@ -433,6 +594,19 @@
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="new-user-talento">Talento Principal (solo estudiantes)</label>
+                        <select id="new-user-talento">
+                            <option value="">Seleccione talento</option>
+                            <option value="deportivo">Deportivo</option>
+                            <option value="musical">Musical</option>
+                            <option value="matematico">Matemático</option>
+                            <option value="linguistico">Lingüístico</option>
+                            <option value="tecnologico">Tecnológico</option>
+                            <option value="artistico">Artístico</option>
+                        </select>
                     </div>
                     
                     <div class="form-actions">
@@ -460,11 +634,13 @@
                     <div class="form-group">
                         <label for="new-password">Nueva Contraseña</label>
                         <input type="password" id="new-password" required>
+                        <small>Mínimo 3 caracteres</small>
                     </div>
                     
                     <div class="form-group">
                         <label for="confirm-password">Confirmar Nueva Contraseña</label>
                         <input type="password" id="confirm-password" required>
+                        <small id="password-match"></small>
                     </div>
                     
                     <div class="form-actions">
@@ -487,7 +663,7 @@
             </div>
             
             <div class="comments-section">
-                <h3>💬 Comentarios</h3>
+                <h3>💬 Comentarios <span id="comments-count-badge">(0)</span></h3>
                 <div id="comments-list">
                     <!-- Comments will be populated by JavaScript -->
                 </div>
@@ -497,7 +673,8 @@
                     <form id="comment-form">
                         <input type="hidden" id="comment-article-id">
                         <div class="form-group">
-                            <textarea id="comment-content" placeholder="Escribe tu comentario..." required></textarea>
+                            <textarea id="comment-content" placeholder="Escribe tu comentario..." required maxlength="500"></textarea>
+                            <small class="char-count" id="comment-char-count">0/500 caracteres</small>
                         </div>
                         <button type="submit" class="btn-success">📤 Publicar Comentario</button>
                     </form>
@@ -509,11 +686,18 @@
         <div id="games-page" class="page">
             <div class="page-header">
                 <h2 class="page-title">🎮 Juegos Educativos</h2>
-                <button onclick="showPage('dashboard-page')" class="btn-outline">← Volver al Dashboard</button>
+                <div class="page-actions">
+                    <button onclick="showPage('dashboard-page')" class="btn-outline">← Volver al Dashboard</button>
+                    <button class="btn-help" onclick="showHelp('games')">❓</button>
+                </div>
             </div>
             
             <div class="games-intro">
                 <p>Desarrolla tus habilidades a través de estos juegos educativos diseñados para potenciar diferentes tipos de talento.</p>
+                <div class="user-stats" id="user-game-stats" style="display: none;">
+                    <h4>🏆 Tus Estadísticas de Juego</h4>
+                    <div id="game-stats-content"></div>
+                </div>
             </div>
             
             <div class="games-grid" id="games-grid">
@@ -577,6 +761,7 @@
             </div>
             <div class="footer-bottom">
                 <p>&copy; 2025 Colegio San Francisco IED. Todos los derechos reservados.</p>
+                <p><small>Versión 2.0 - Sistema de Revista Digital</small></p>
             </div>
         </div>
     </footer>
