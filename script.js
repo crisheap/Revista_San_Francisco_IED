@@ -285,8 +285,8 @@ function updatePublicHeader() {
         // Reset navigation to public view
         const navMenu = document.getElementById('nav-menu');
         navMenu.innerHTML = `
-            <li><a href="#" onclick="showPublicMagazine()">🏠 Inicio</a></li>
-            <li><a href="#" onclick="showPage('login-page')">🔐 Ingresar</a></li>
+            <li><a href="#" onclick="showPublicMagazine()">🏠</a></li>
+            <li><a href="#" onclick="showPage('login-page')">🔐</a></li>
         `;
     }
 }
