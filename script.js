@@ -587,7 +587,7 @@ function handleLogin(e) {
         
         alert(`✅ Bienvenido/a ${user.name}! Has ingresado como ${getRoleName(user.role)}`);
     } else {
-        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.\n\n💡 Usuarios demo:\n• admin / admin (Administrador)\n• docente1 / 123 (Docente)\n• estudiante1 / 123 (Estudiante)\n• padre1 / 123 (Padre)');
+        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.💡');
     }
 }
 
@@ -2074,7 +2074,7 @@ function resetMemoryGame() {
 // Help system
 function showHelp(section) {
     const helpMessages = {
-        login: `🔐 Sistema de Login\n\nUsuarios demo disponibles:\n\n• Administrador:\n  Usuario: admin\n  Contraseña: admin\n\n• Docente:\n  Usuario: docente1\n  Contraseña: 123\n\n• Estudiante Reportero:\n  Usuario: estudiante1\n  Contraseña: 123\n\n• Padre de Familia:\n  Usuario: padre1\n  Contraseña: 123\n\n💡 También puedes continuar como espectador sin iniciar sesión.`,
+        login: `🔐 Sistema de Login 💡 También puedes continuar como espectador sin iniciar sesión.`,
 
         dashboard: `📊 **Panel de Control**\n\nEl dashboard muestra:\n• Estadísticas generales del sistema\n• Notificaciones recientes\n• Acciones rápidas según tu rol\n\n**Estadísticas:**\n• Artículos publicados\n• Artículos pendientes de revisión\n• Comentarios totales\n• Usuarios activos`,
 
