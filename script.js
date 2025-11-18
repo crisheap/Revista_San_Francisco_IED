@@ -193,6 +193,17 @@ function initApp() {
 
 // Setup event listeners
 function setupEventListeners() {
+    // Login form submission
+    const loginForm = document.getElementById('login-form');
+    console.log('🔍 Formulario de login encontrado:', loginForm);
+    //  Verificar si el formulario existe antes de agregar el event listener
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        console.log('✅ Event listener del login registrado correctamente');
+        // Puedes agregar más logs aquí si es necesario
+    } else {
+        console.error('❌ NO se encontró el formulario de login con id="login-form"');
+    }
     document.getElementById('login-form').addEventListener('submit', handleLogin);
     document.getElementById('new-article-btn').addEventListener('click', showNewArticleForm);
     document.getElementById('cancel-article-btn').addEventListener('click', cancelArticleForm);

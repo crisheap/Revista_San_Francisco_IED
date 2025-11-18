@@ -16,6 +16,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.url}`);
+    next();
+});
 // Inicializar base de datos al iniciar el servidor
 initializeDatabase().catch(console.error);
 
