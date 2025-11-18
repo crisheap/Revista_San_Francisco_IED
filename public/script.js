@@ -131,21 +131,77 @@ function setupEventListeners() {
     });
 }
 
-// Load data from localStorage
+// EN script.js - REEMPLAZA la función loadDataFromStorage:
+
 function loadDataFromStorage() {
     const savedUsers = localStorage.getItem('revista_users');
     const savedArticles = localStorage.getItem('revista_articles');
     const savedNotifications = localStorage.getItem('revista_notifications');
     
-    state.users = savedUsers ? JSON.parse(savedUsers) : [];
-    state.articles = savedArticles ? JSON.parse(savedArticles) : [];
-    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
+    // Datos de respaldo para cuando no hay conexión
+    const backupUsers = [
+        { 
+            id: 1, 
+            username: 'admin', 
+            password: 'admin', 
+            name: 'Administrador Sistema', 
+            role: 'admin', 
+            active: true,
+            lastLogin: new Date().toISOString().split('T')[0]
+        },
+        { 
+            id: 2, 
+            username: 'docente1', 
+            password: '123', 
+            name: 'María González', 
+            role: 'teacher', 
+            active: true,
+            lastLogin: new Date().toISOString().split('T')[0]
+        },
+        { 
+            id: 3, 
+            username: 'estudiante1', 
+            password: '123', 
+            name: 'Juan Pérez', 
+            role: 'student', 
+            active: true,
+            talento: 'artistico',
+            lastLogin: new Date().toISOString().split('T')[0]
+        }
+    ];
+
+    const backupArticles = [
+        {
+            id: 1,
+            title: 'Bienvenido a la Revista Digital',
+            category: 'tecnologico',
+            chapter: 'portafolios',
+            content: 'Esta es la Revista Digital del Colegio San Francisco IED. Conéctate a internet para ver todos los artículos.',
+            author: 'Sistema',
+            authorId: 1,
+            image: '',
+            imageFile: null,
+            status: 'published',
+            createdAt: new Date().toISOString().split('T')[0],
+            comments: []
+        }
+    ];
+
+    const backupNotifications = [
+        { 
+            id: 1, 
+            title: 'Bienvenido/a', 
+            content: 'Conéctate a internet para acceder a todas las funciones', 
+            type: 'info', 
+            read: false, 
+            createdAt: new Date().toISOString().split('T')[0],
+            link: 'dashboard-page'
+        }
+    ];
     
-    console.log('📁 Datos cargados desde localStorage:', {
-        users: state.users.length,
-        articles: state.articles.length,
-        notifications: state.notifications.length
-    });
+    state.users = savedUsers ? JSON.parse(savedUsers) : backupUsers;
+    state.articles = savedArticles ? JSON.parse(savedArticles) : backupArticles;
+    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : backupNotifications;
 }
 
 // Save data to localStorage
@@ -699,23 +755,30 @@ function setupEventListeners() {
     });
 }
 
-// Load data from localStorage
+// Load data from localStorage - FUNCIÓN CORREGIDA
 function loadDataFromStorage() {
-    const savedUsers = localStorage.getItem('revista_users');
-    const savedArticles = localStorage.getItem('revista_articles');
-    const savedNotifications = localStorage.getItem('revista_notifications');
-    
-    state.users = savedUsers ? JSON.parse(savedUsers) : [...sampleUsers];
-    state.articles = savedArticles ? JSON.parse(savedArticles) : [...sampleArticles];
-    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [...sampleNotifications];
-    
-    // Convertir imageFile de string base64 a Blob si existe
-    state.articles.forEach(article => {
-        if (article.imageFile && typeof article.imageFile === 'string') {
-            // En un sistema real, aquí se reconstruiría el Blob desde base64
-            // Por simplicidad, mantenemos la URL de imagen si existe
-        }
-    });
+    try {
+        const savedUsers = localStorage.getItem('revista_users');
+        const savedArticles = localStorage.getItem('revista_articles');
+        const savedNotifications = localStorage.getItem('revista_notifications');
+        
+        // Usar arrays vacíos si no hay datos en localStorage
+        state.users = savedUsers ? JSON.parse(savedUsers) : [];
+        state.articles = savedArticles ? JSON.parse(savedArticles) : [];
+        state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
+        
+        console.log('📁 Datos cargados desde localStorage:', {
+            users: state.users.length,
+            articles: state.articles.length,
+            notifications: state.notifications.length
+        });
+    } catch (error) {
+        console.error('❌ Error cargando datos de localStorage:', error);
+        // Inicializar con arrays vacíos
+        state.users = [];
+        state.articles = [];
+        state.notifications = [];
+    }
 }
 
 // Save data to localStorage
