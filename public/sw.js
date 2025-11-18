@@ -5,10 +5,12 @@ const OFFLINE_URL = '/offline.html';
 // Archivos críticos para cachear
 const STATIC_CACHE = [
     '/',
-    '/offline.html',
+    '/index.html',
     '/styles.css',
     '/script.js',
+    '/offline.html',
     '/manifest.json'
+    
 ];
 
 // Instalación
