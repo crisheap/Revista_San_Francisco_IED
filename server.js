@@ -43,6 +43,15 @@ app.use(express.static(path.join(__dirname, 'public'), {
     etag: false
 }));
 
+// Middleware para manejar errores de archivos estáticos silenciosamente
+app.use((req, res, next) => {
+    // Si es una solicitud de icono, responder silenciosamente
+    if (req.path.includes('/icons/')) {
+        console.log(`🖼️ Solicitud de icono ignorada: ${req.path}`);
+        return res.status(204).send(); // 204 No Content
+    }
+    next();
+});
 // Middleware de logging mejorado
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip}`);
@@ -463,15 +472,14 @@ app.post('/api/game-stats', async (req, res) => {
     }
 });
 // =======================
-// RUTAS ESPECÍFICAS PARA ARCHIVOS PWA
+// RUTAS ESPECÍFICAS PARA ARCHIVOS PWA - SIN ICONOS
 // =======================
 
 // Ruta para el Service Worker
 app.get('/sw.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'sw.js'), {
         headers: {
-            'Content-Type': 'application/javascript',
-            'Service-Worker-Allowed': '/'
+            'Content-Type': 'application/javascript'
         }
     });
 });
@@ -488,6 +496,13 @@ app.get('/manifest.json', (req, res) => {
 // Ruta para offline.html
 app.get('/offline.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'offline.html'));
+});
+
+// NOTA: Eliminamos la ruta de icons para evitar errores 404
+
+// IMPORTANTE: Esta ruta debe ir AL FINAL
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // =======================
@@ -593,4 +608,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📊 Base de datos: Neon PostgreSQL`);
     console.log(`🔗 Health Check: http://0.0.0.0:${PORT}/api/health`);
     console.log('='.repeat(50));
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

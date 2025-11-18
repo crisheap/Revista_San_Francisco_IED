@@ -8,85 +8,37 @@
     <script defer src="script.js"></script>
     <title>Revista Digital - Colegio San Francisco IED</title>
     
-    <!-- PWA Meta Tags -->
+    <!-- PWA Meta Tags Básicos -->
     <meta name="theme-color" content="#1e3a8a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Revista CSF">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="msapplication-TileColor" content="#1e3a8a">
-    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
 
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167x167.png">
-
-    <!-- Manifest -->
+    <!-- Manifest sin referencias a iconos faltantes -->
     <link rel="manifest" href="/manifest.json">
 
-    <!-- Service Worker Registration -->
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration Simplificado -->
     <script>
-        // Registrar Service Worker para producción
+        // Registrar Service Worker básico
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                // Usar ruta absoluta para el Service Worker
-                const swUrl = '/sw.js';
-                
-                console.log('🔄 Registrando Service Worker...');
-                
-                navigator.serviceWorker.register(swUrl, {
-                    scope: '/'
-                })
-                .then(function(registration) {
-                    console.log('✅ ServiceWorker registrado correctamente: ', registration.scope);
-                    
-                    // Verificar actualizaciones
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        console.log('🔄 Nueva versión del Service Worker encontrada');
-                        
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('📦 Nueva versión disponible. Recarga para actualizar.');
-                                if (confirm('🎉 Hay una nueva versión disponible. ¿Quieres actualizar ahora?')) {
-                                    window.location.reload();
-                                }
-                            }
-                        });
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then(function(registration) {
+                        console.log('✅ ServiceWorker registrado: ', registration.scope);
+                    })
+                    .catch(function(error) {
+                        console.log('❌ Error ServiceWorker: ', error);
                     });
-                })
-                .catch(function(error) {
-                    console.log('❌ Error registrando ServiceWorker: ', error);
-                    console.log('Detalles del error:', error.message);
-                });
             });
-
-            // Escuchar mensajes del Service Worker
-            navigator.serviceWorker.addEventListener('message', event => {
-                if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
-                    showUpdateNotification();
-                }
-            });
-        } else {
-            console.log('❌ Service Worker no soportado en este navegador');
         }
 
         // Verificar conexión
         function updateOnlineStatus() {
             const statusElement = document.getElementById('connection-status');
             if (statusElement) {
-                if (navigator.onLine) {
-                    statusElement.style.display = 'none';
-                } else {
-                    statusElement.style.display = 'block';
-                    statusElement.textContent = '🌐 Sin conexión - Modo offline activado';
-                }
+                statusElement.style.display = navigator.onLine ? 'none' : 'block';
             }
         }
-
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
         document.addEventListener('DOMContentLoaded', updateOnlineStatus);
