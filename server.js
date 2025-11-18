@@ -498,7 +498,28 @@ app.get('/offline.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'offline.html'));
 });
 
-// NOTA: Eliminamos la ruta de icons para evitar errores 404
+// Agrega esto ANTES de las otras rutas en server.js
+
+// Ruta para favicon (evita errores 404)
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // No Content - evita errores
+});
+
+// Ruta para íconos faltantes
+app.get('/icons/icon-:size.png', (req, res) => {
+    console.log(`🖼️ Solicitud de icono ignorada: /icons/icon-${req.params.size}.png`);
+    res.status(204).end(); // No Content
+});
+
+// Ruta de health check
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Revista Digital CSF API - Funcionando correctamente',
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+    });
+});
 
 // IMPORTANTE: Esta ruta debe ir AL FINAL
 app.get('*', (req, res) => {

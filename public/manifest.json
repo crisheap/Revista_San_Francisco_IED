@@ -7,13 +7,5 @@
   "display": "standalone",
   "background_color": "#1e3a8a",
   "theme_color": "#1e3a8a",
-  "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMxRTNBOEEiLz4KPHN2ZyB4PSI0OCIgeT0iNDgiIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNGOUM5MEIiIHN0cm9rZS13aWR0aD0iMiI+CjxwYXRoIGQ9Ik0xMiA2Ljc1VjE3LjI1TTE3LjI1IDEySDYuNzVNMTguMzcgNy44ODZMMTcuMTE0IDkuMTE0TTE2LjExNCAxNC44ODZMMTcuODg2IDE2LjExNE03Ljg4NiA3Ljg4Nkw5LjExNCA5LjExNE02LjExNCAxNC44ODZMNy44ODYgMTYuMTE0TTEyIDEyTDE1IDkiLz4KPC9zdmc+Cjwvc3ZnPgo=",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+  "orientation": "portrait-primary"
 }
