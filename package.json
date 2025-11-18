@@ -1,31 +1,41 @@
 {
   "name": "revista-digital-csf",
   "version": "2.0.0",
-  "description": "Revista Digital Colegio San Francisco IED - Programa Talentos",
+  "description": "Revista Digital Colegio San Francisco IED - Programa Talentos y Capacidades Excepcionales",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node init-db.js"
+    "build": "npm install",
+    "test": "echo \"No tests specified\" && exit 0",
+    "render-build": "npm install"
   },
+  "keywords": [
+    "revista",
+    "digital", 
+    "colegio",
+    "educacion",
+    "pwa",
+    "neon",
+    "postgresql"
+  ],
+  "author": "Colegio San Francisco IED",
+  "license": "MIT",
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^4.18.2",
-    "node": "^25.2.1",
-    "path": "^0.12.7",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": [
-    "revista",
-    "digital",
-    "colegio",
-    "educacion",
-    "pwa"
-  ],
-  "author": "Colegio San Francisco IED",
-  "license": "MIT"
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tu-usuario/Colegio_San_Francisco_IED"
+  }
 }

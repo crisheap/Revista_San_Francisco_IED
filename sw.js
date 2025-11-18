@@ -1,6 +1,7 @@
-// Service Worker para Revista Digital - Colegio San Francisco IED
-const CACHE_NAME = 'revista-digital-v2.1';
-const OFFLINE_URL = 'offline.html';
+// Service Worker para Revista Digital - Colegio San Francisco IED - PRODUCCIÓN
+const CACHE_NAME = 'revista-digital-csf-v2.2';
+const OFFLINE_URL = '/offline.html';
+const API_CACHE_NAME = 'revista-api-cache-v1';
 
 // Archivos críticos para cachear
 const STATIC_CACHE = [
@@ -10,12 +11,7 @@ const STATIC_CACHE = [
     '/script.js',
     '/offline.html',
     '/manifest.json',
-    'https://www.redacademica.edu.co/sites/default/files/2025-01/Enero%2024_1.png'
-];
-
-// Archivos de recursos estáticos
-const STATIC_RESOURCES = [
-    // Iconos y recursos locales (agregar según necesidad)
+    '/api/health'
 ];
 
 // Instalación del Service Worker
@@ -46,7 +42,7 @@ self.addEventListener('activate', (event) => {
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
+                    if (cacheName !== CACHE_NAME && cacheName !== API_CACHE_NAME) {
                         console.log('🗑️ Eliminando cache antiguo:', cacheName);
                         return caches.delete(cacheName);
                     }
@@ -64,51 +60,120 @@ self.addEventListener('fetch', (event) => {
     // Solo manejar requests HTTP/HTTPS
     if (!event.request.url.startsWith('http')) return;
 
-    event.respondWith(
-        caches.match(event.request)
-            .then((cachedResponse) => {
-                // Si existe en cache, devolverlo
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
+    // Para requests de API, usar estrategia Network First
+    if (event.request.url.includes('/api/')) {
+        event.respondWith(handleApiRequest(event.request));
+        return;
+    }
 
-                // Si no está en cache, hacer fetch a la red
-                return fetch(event.request)
-                    .then((networkResponse) => {
-                        // Si la respuesta es válida, cachearla
-                        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                            const responseToCache = networkResponse.clone();
-                            caches.open(CACHE_NAME)
-                                .then((cache) => {
-                                    cache.put(event.request, responseToCache);
-                                });
-                        }
-                        return networkResponse;
-                    })
-                    .catch((error) => {
-                        console.log('🌐 Error de red, mostrando página offline');
-                        
-                        // Si es una navegación HTML, mostrar página offline
-                        if (event.request.destination === 'document') {
-                            return caches.match(OFFLINE_URL);
-                        }
-                        
-                        // Para otros recursos, puedes retornar un fallback
-                        return new Response('Recurso no disponible sin conexión', {
-                            status: 503,
-                            statusText: 'Service Unavailable'
-                        });
-                    });
-            })
-    );
+    // Para recursos estáticos, usar estrategia Cache First
+    event.respondWith(handleStaticRequest(event.request));
 });
+
+// Manejo de requests de API
+async function handleApiRequest(request) {
+    const cache = await caches.open(API_CACHE_NAME);
+    
+    try {
+        // Intentar obtener de la red primero
+        const networkResponse = await fetch(request);
+        
+        // Si la respuesta es exitosa, cachearla
+        if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            cache.put(request, responseToCache);
+        }
+        
+        return networkResponse;
+    } catch (error) {
+        // Si falla la red, intentar obtener del cache
+        console.log('🌐 Error de red para API, buscando en cache...');
+        const cachedResponse = await cache.match(request);
+        
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        
+        // Si no hay cache, devolver error
+        return new Response(
+            JSON.stringify({ 
+                error: 'Sin conexión y sin datos en cache',
+                offline: true 
+            }), {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+    }
+}
+
+// Manejo de requests estáticos
+async function handleStaticRequest(request) {
+    const cache = await caches.open(CACHE_NAME);
+    
+    try {
+        // Primero intentar obtener del cache
+        const cachedResponse = await cache.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+
+        // Si no está en cache, hacer fetch a la red
+        const networkResponse = await fetch(request);
+        
+        // Si la respuesta es válida, cachearla
+        if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            cache.put(request, responseToCache);
+        }
+        
+        return networkResponse;
+    } catch (error) {
+        console.log('🌐 Error de red, mostrando página offline');
+        
+        // Si es una navegación HTML, mostrar página offline
+        if (request.destination === 'document' || request.mode === 'navigate') {
+            return cache.match(OFFLINE_URL);
+        }
+        
+        // Para otros recursos, devolver fallback
+        return new Response('Recurso no disponible sin conexión', {
+            status: 503,
+            statusText: 'Service Unavailable'
+        });
+    }
+}
 
 // Manejo de mensajes desde la app
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+    
+    if (event.data && event.data.type === 'CACHE_API_DATA') {
+        cacheApiData(event.data.payload);
+    }
 });
+
+// Función para cachear datos de API
+async function cacheApiData(data) {
+    const cache = await caches.open(API_CACHE_NAME);
+    
+    // Cachear endpoints comunes
+    const endpoints = [
+        '/api/articles?status=published',
+        '/api/users'
+    ];
+    
+    for (const endpoint of endpoints) {
+        const url = new URL(endpoint, self.location.origin).href;
+        const response = new Response(JSON.stringify(data), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        await cache.put(url, response);
+    }
+}
 
 // Sincronización en background
 self.addEventListener('sync', (event) => {
@@ -119,16 +184,13 @@ self.addEventListener('sync', (event) => {
 });
 
 // Función para sincronización en background
-function doBackgroundSync() {
-    return Promise.resolve()
-        .then(() => {
-            // Aquí iría la lógica de sincronización
-            // Por ejemplo, enviar artículos pendientes cuando haya conexión
-            console.log('✅ Sincronización completada');
-        })
-        .catch((error) => {
-            console.error('❌ Error en sincronización:', error);
-        });
+async function doBackgroundSync() {
+    try {
+        // Aquí iría la lógica de sincronización de datos pendientes
+        console.log('✅ Sincronización completada');
+    } catch (error) {
+        console.error('❌ Error en sincronización:', error);
+    }
 }
 
 // Manejo de notificaciones push
@@ -182,27 +244,4 @@ self.addEventListener('notificationclick', (event) => {
     }
 });
 
-// Manejo de actualizaciones de contenido
-self.addEventListener('periodicsync', (event) => {
-    if (event.tag === 'content-update') {
-        event.waitUntil(updateContent());
-    }
-});
-
-// Función para actualizar contenido periódicamente
-function updateContent() {
-    return caches.open(CACHE_NAME)
-        .then((cache) => {
-            return fetch('/')
-                .then((response) => {
-                    if (response.status === 200) {
-                        cache.put('/', response);
-                    }
-                })
-                .catch((error) => {
-                    console.log('No se pudo actualizar el contenido:', error);
-                });
-        });
-}
-
-console.log('🚀 Service Worker cargado correctamente');
+console.log('🚀 Service Worker cargado correctamente para producción');

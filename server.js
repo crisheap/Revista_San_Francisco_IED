@@ -1,6 +1,5 @@
-// Cargar variables de entorno
+// server.js - Servidor completo para producción
 require('dotenv').config();
-// server.js - Servidor backend para la Revista Digital
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -8,29 +7,88 @@ const { query } = require('./database');
 const { initializeDatabase } = require('./init-db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// Middleware
-app.use(cors());
+// Configuración de CORS para producción
+const corsOptions = {
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:5500',
+            'https://revista-digital-csf.onrender.com',
+            'https://revista-digital-csf-frontend.onrender.com'
+        ];
+        
+        // Permitir requests sin origin (como mobile apps o Postman)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('Bloqueado por CORS:', origin);
+            callback(new Error('No permitido por CORS'));
+        }
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Servir archivos estáticos desde la carpeta public
+app.use(express.static(path.join(__dirname, 'public'), {
+    maxAge: '1d', // Cache por 1 día
+    etag: false
+}));
+
+// Middleware de logging
 app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.url}`);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
     next();
 });
-// Inicializar base de datos al iniciar el servidor
-initializeDatabase().catch(console.error);
+
+// Inicializar base de datos
+initializeDatabase().then(() => {
+    console.log('✅ Base de datos inicializada correctamente');
+}).catch(error => {
+    console.error('❌ Error inicializando base de datos:', error);
+});
 
 // =======================
 // RUTAS DE LA API
 // =======================
 
+// Ruta de salud de la API
+app.get('/api/health', async (req, res) => {
+    try {
+        // Verificar conexión a la base de datos
+        await query('SELECT 1');
+        res.json({ 
+            status: 'OK', 
+            message: 'Revista Digital CSF API - Funcionando correctamente',
+            environment: process.env.NODE_ENV || 'development',
+            timestamp: new Date().toISOString(),
+            database: 'Conectada'
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'ERROR', 
+            message: 'Problema con la base de datos',
+            error: error.message 
+        });
+    }
+});
+
 // Autenticación
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password, role } = req.body;
+        
+        if (!username || !password || !role) {
+            return res.status(400).json({ error: 'Todos los campos son requeridos' });
+        }
         
         const result = await query(
             'SELECT id, username, name, role, talento, active, last_login FROM users WHERE username = $1 AND password = $2 AND role = $3 AND active = true',
@@ -38,19 +96,22 @@ app.post('/api/login', async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'Credenciales incorrectas' });
+            return res.status(401).json({ error: 'Credenciales incorrectas o usuario inactivo' });
         }
 
         // Actualizar último login
         await query(
-            'UPDATE users SET last_login = CURRENT_DATE WHERE id = $1',
+            'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
             [result.rows[0].id]
         );
 
-        res.json({ user: result.rows[0] });
+        res.json({ 
+            success: true,
+            user: result.rows[0] 
+        });
     } catch (error) {
         console.error('Error en login:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al procesar el login' });
     }
 });
 
@@ -98,10 +159,13 @@ app.get('/api/articles', async (req, res) => {
             ORDER BY a.created_at DESC
         `, params);
 
-        res.json({ articles: result.rows });
+        res.json({ 
+            success: true,
+            articles: result.rows 
+        });
     } catch (error) {
         console.error('Error obteniendo artículos:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al obtener artículos' });
     }
 });
 
@@ -110,6 +174,11 @@ app.post('/api/articles', async (req, res) => {
     try {
         const { id, title, category, chapter, content, author_id, status, image_url } = req.body;
         
+        // Validaciones básicas
+        if (!title || !category || !chapter || !content || !author_id) {
+            return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
         if (id) {
             // Actualizar artículo existente
             const result = await query(`
@@ -120,7 +189,14 @@ app.post('/api/articles', async (req, res) => {
                 RETURNING *
             `, [title, category, chapter, content, status, image_url, id, author_id]);
             
-            res.json({ article: result.rows[0] });
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Artículo no encontrado' });
+            }
+            
+            res.json({ 
+                success: true,
+                article: result.rows[0] 
+            });
         } else {
             // Crear nuevo artículo
             const result = await query(`
@@ -129,11 +205,14 @@ app.post('/api/articles', async (req, res) => {
                 RETURNING *
             `, [title, category, chapter, content, author_id, status, image_url]);
             
-            res.json({ article: result.rows[0] });
+            res.json({ 
+                success: true,
+                article: result.rows[0] 
+            });
         }
     } catch (error) {
         console.error('Error guardando artículo:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al guardar el artículo' });
     }
 });
 
@@ -161,12 +240,13 @@ app.get('/api/articles/:id', async (req, res) => {
         `, [req.params.id]);
 
         res.json({ 
+            success: true,
             article: result.rows[0],
             comments: commentsResult.rows
         });
     } catch (error) {
         console.error('Error obteniendo artículo:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al obtener el artículo' });
     }
 });
 
@@ -175,20 +255,27 @@ app.post('/api/articles/:id/comments', async (req, res) => {
     try {
         const { author_id, content } = req.body;
         
+        if (!author_id || !content) {
+            return res.status(400).json({ error: 'Faltan campos requeridos' });
+        }
+
         const result = await query(`
             INSERT INTO comments (article_id, author_id, content)
             VALUES ($1, $2, $3)
             RETURNING *
         `, [req.params.id, author_id, content]);
 
-        res.json({ comment: result.rows[0] });
+        res.json({ 
+            success: true,
+            comment: result.rows[0] 
+        });
     } catch (error) {
         console.error('Error agregando comentario:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al agregar comentario' });
     }
 });
 
-// Gestión de usuarios (solo admin)
+// Obtener usuarios
 app.get('/api/users', async (req, res) => {
     try {
         const result = await query(`
@@ -196,10 +283,13 @@ app.get('/api/users', async (req, res) => {
             FROM users 
             ORDER BY created_at DESC
         `);
-        res.json({ users: result.rows });
+        res.json({ 
+            success: true,
+            users: result.rows 
+        });
     } catch (error) {
         console.error('Error obteniendo usuarios:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al obtener usuarios' });
     }
 });
 
@@ -208,16 +298,104 @@ app.post('/api/users', async (req, res) => {
     try {
         const { username, password, name, role, talento } = req.body;
         
+        if (!username || !password || !name || !role) {
+            return res.status(400).json({ error: 'Todos los campos son requeridos' });
+        }
+
+        // Verificar si el usuario ya existe
+        const existingUser = await query(
+            'SELECT id FROM users WHERE username = $1',
+            [username]
+        );
+
+        if (existingUser.rows.length > 0) {
+            return res.status(409).json({ error: 'El nombre de usuario ya existe' });
+        }
+
         const result = await query(`
             INSERT INTO users (username, password, name, role, talento)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, username, name, role, talento, active, last_login
         `, [username, password, name, role, talento]);
 
-        res.json({ user: result.rows[0] });
+        res.json({ 
+            success: true,
+            user: result.rows[0] 
+        });
     } catch (error) {
         console.error('Error creando usuario:', error);
+        res.status(500).json({ error: 'Error del servidor al crear usuario' });
+    }
+});
+
+// Verificar nombre de usuario
+app.get('/api/users/check-username', async (req, res) => {
+    try {
+        const { username } = req.query;
+        
+        if (!username) {
+            return res.status(400).json({ error: 'Username es requerido' });
+        }
+
+        const result = await query(
+            'SELECT id FROM users WHERE username = $1',
+            [username]
+        );
+
+        res.json({ 
+            exists: result.rows.length > 0 
+        });
+    } catch (error) {
+        console.error('Error verificando usuario:', error);
         res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Actualizar estado de usuario
+app.put('/api/users/:id/status', async (req, res) => {
+    try {
+        const { active } = req.body;
+        
+        const result = await query(
+            'UPDATE users SET active = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, name, active',
+            [active, req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({ 
+            success: true,
+            user: result.rows[0] 
+        });
+    } catch (error) {
+        console.error('Error actualizando estado de usuario:', error);
+        res.status(500).json({ error: 'Error del servidor al actualizar estado' });
+    }
+});
+
+// Resetear contraseña
+app.put('/api/users/:id/password', async (req, res) => {
+    try {
+        const { password } = req.body;
+        
+        const result = await query(
+            'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, name',
+            [password, req.params.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({ 
+            success: true,
+            user: result.rows[0] 
+        });
+    } catch (error) {
+        console.error('Error reseteando contraseña:', error);
+        res.status(500).json({ error: 'Error del servidor al resetear contraseña' });
     }
 });
 
@@ -231,10 +409,13 @@ app.get('/api/notifications/:user_id', async (req, res) => {
             LIMIT 10
         `, [req.params.user_id]);
 
-        res.json({ notifications: result.rows });
+        res.json({ 
+            success: true,
+            notifications: result.rows 
+        });
     } catch (error) {
         console.error('Error obteniendo notificaciones:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al obtener notificaciones' });
     }
 });
 
@@ -259,63 +440,53 @@ app.post('/api/game-stats', async (req, res) => {
             RETURNING *
         `, [user_id, game_type, completed, score, time]);
 
-        res.json({ stats: result.rows[0] });
+        res.json({ 
+            success: true,
+            stats: result.rows[0] 
+        });
     } catch (error) {
         console.error('Error actualizando estadísticas:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        res.status(500).json({ error: 'Error del servidor al actualizar estadísticas' });
     }
 });
 
-// Servir la aplicación principal
+// Ruta para servir el manifest.json correctamente
+app.get('/manifest.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+});
+
+// Ruta para servir el service worker
+app.get('/sw.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
+// Ruta para servir offline.html
+app.get('/offline.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'offline.html'));
+});
+
+// IMPORTANTE: Esta ruta debe ir AL FINAL - Maneja todas las rutas del frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Manejo de errores global
+app.use((error, req, res, next) => {
+    console.error('Error global:', error);
+    res.status(500).json({ 
+        error: 'Error interno del servidor',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Algo salió mal'
+    });
+});
+
 // Iniciar servidor
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log('='.repeat(50));
+    console.log('🚀 REVISTA DIGITAL CSF - SERVIDOR INICIADO');
+    console.log('='.repeat(50));
+    console.log(`📍 Puerto: ${PORT}`);
+    console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📊 Base de datos: Neon PostgreSQL`);
-    console.log(`🌍 Entorno: ${process.env.NODE_ENV}`);
-});
-
-// Ruta para actualizar estado de usuario
-app.put('/api/users/:id/status', async (req, res) => {
-    try {
-        const { active } = req.body;
-        
-        const result = await query(
-            'UPDATE users SET active = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, name, active',
-            [active, req.params.id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        res.json({ user: result.rows[0] });
-    } catch (error) {
-        console.error('Error actualizando estado de usuario:', error);
-        res.status(500).json({ error: 'Error del servidor' });
-    }
-});
-
-// Ruta para resetear contraseña
-app.put('/api/users/:id/password', async (req, res) => {
-    try {
-        const { password } = req.body;
-        
-        const result = await query(
-            'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username, name',
-            [password, req.params.id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        res.json({ user: result.rows[0] });
-    } catch (error) {
-        console.error('Error reseteando contraseña:', error);
-        res.status(500).json({ error: 'Error del servidor' });
-    }
+    console.log(`🔗 Health Check: http://0.0.0.0:${PORT}/api/health`);
+    console.log('='.repeat(50));
 });
