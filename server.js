@@ -490,10 +490,64 @@ app.get('/offline.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'offline.html'));
 });
 
-// Ruta para icons (si los tienes)
+// =======================
+// RUTAS ESPECÍFICAS PARA ARCHIVOS PWA - MEJORADO
+// =======================
+
+// Ruta para icons con manejo de errores
 app.get('/icons/:icon', (req, res) => {
-    const iconPath = path.join(__dirname, 'public', 'icons', req.params.icon);
-    res.sendFile(iconPath);
+    const iconName = req.params.icon;
+    const iconPath = path.join(__dirname, 'public', 'icons', iconName);
+    
+    // Verificar si el archivo existe
+    if (fs.existsSync(iconPath)) {
+        res.sendFile(iconPath);
+    } else {
+        console.log(`⚠️ Icono no encontrado: ${iconName}`);
+        // Enviar un icono por defecto o error 404
+        res.status(404).json({ error: 'Icono no encontrado' });
+    }
+});
+
+// Ruta para el Service Worker
+app.get('/sw.js', (req, res) => {
+    const swPath = path.join(__dirname, 'public', 'sw.js');
+    if (fs.existsSync(swPath)) {
+        res.sendFile(swPath, {
+            headers: {
+                'Content-Type': 'application/javascript',
+                'Service-Worker-Allowed': '/'
+            }
+        });
+    } else {
+        console.log('⚠️ Service Worker no encontrado');
+        res.status(404).send('Service Worker no disponible');
+    }
+});
+
+// Ruta para el manifest.json
+app.get('/manifest.json', (req, res) => {
+    const manifestPath = path.join(__dirname, 'public', 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+        res.sendFile(manifestPath, {
+            headers: {
+                'Content-Type': 'application/manifest+json'
+            }
+        });
+    } else {
+        console.log('⚠️ Manifest no encontrado');
+        res.status(404).json({ error: 'Manifest no disponible' });
+    }
+});
+
+// Ruta para offline.html
+app.get('/offline.html', (req, res) => {
+    const offlinePath = path.join(__dirname, 'public', 'offline.html');
+    if (fs.existsSync(offlinePath)) {
+        res.sendFile(offlinePath);
+    } else {
+        res.status(404).send('Página offline no disponible');
+    }
 });
 
 // IMPORTANTE: Esta ruta debe ir AL FINAL - Maneja todas las rutas del frontend
