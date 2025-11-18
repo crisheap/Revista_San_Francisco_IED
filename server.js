@@ -43,6 +43,19 @@ app.use(express.static(path.join(__dirname, 'public'), {
     etag: false
 }));
 
+// Middleware de logging mejorado
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip}`);
+    
+    // Log específico para archivos estáticos
+    if (req.path.includes('.js') || req.path.includes('.css') || req.path.includes('.html')) {
+        const filePath = path.join(__dirname, 'public', req.path);
+        console.log(`📁 Buscando archivo: ${filePath}`);
+    }
+    
+    next();
+});
+
 // Middleware de logging
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -449,7 +462,44 @@ app.post('/api/game-stats', async (req, res) => {
         res.status(500).json({ error: 'Error del servidor al actualizar estadísticas' });
     }
 });
+// =======================
+// RUTAS ESPECÍFICAS PARA ARCHIVOS PWA
+// =======================
 
+// Ruta para el Service Worker
+app.get('/sw.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'sw.js'), {
+        headers: {
+            'Content-Type': 'application/javascript',
+            'Service-Worker-Allowed': '/'
+        }
+    });
+});
+
+// Ruta para el manifest.json
+app.get('/manifest.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'manifest.json'), {
+        headers: {
+            'Content-Type': 'application/manifest+json'
+        }
+    });
+});
+
+// Ruta para offline.html
+app.get('/offline.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'offline.html'));
+});
+
+// Ruta para icons (si los tienes)
+app.get('/icons/:icon', (req, res) => {
+    const iconPath = path.join(__dirname, 'public', 'icons', req.params.icon);
+    res.sendFile(iconPath);
+});
+
+// IMPORTANTE: Esta ruta debe ir AL FINAL - Maneja todas las rutas del frontend
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 // Ruta para servir el manifest.json correctamente
 app.get('/manifest.json', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'manifest.json'));

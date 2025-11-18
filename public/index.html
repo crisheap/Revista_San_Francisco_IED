@@ -27,34 +27,41 @@
     <link rel="manifest" href="/manifest.json">
 
     <!-- Service Worker Registration -->
+    <!-- Service Worker Registration -->
     <script>
         // Registrar Service Worker para producción
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
+                // Usar ruta absoluta para el Service Worker
                 const swUrl = '/sw.js';
                 
-                navigator.serviceWorker.register(swUrl)
-                    .then(function(registration) {
-                        console.log('✅ ServiceWorker registrado correctamente: ', registration.scope);
+                console.log('🔄 Registrando Service Worker...');
+                
+                navigator.serviceWorker.register(swUrl, {
+                    scope: '/'
+                })
+                .then(function(registration) {
+                    console.log('✅ ServiceWorker registrado correctamente: ', registration.scope);
+                    
+                    // Verificar actualizaciones
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        console.log('🔄 Nueva versión del Service Worker encontrada');
                         
-                        // Verificar actualizaciones
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            console.log('🔄 Nueva versión del Service Worker encontrada');
-                            
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('📦 Nueva versión disponible. Recarga para actualizar.');
-                                    if (confirm('🎉 Hay una nueva versión disponible. ¿Quieres actualizar ahora?')) {
-                                        window.location.reload();
-                                    }
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('📦 Nueva versión disponible. Recarga para actualizar.');
+                                if (confirm('🎉 Hay una nueva versión disponible. ¿Quieres actualizar ahora?')) {
+                                    window.location.reload();
                                 }
-                            });
+                            }
                         });
-                    })
-                    .catch(function(error) {
-                        console.log('❌ Error registrando ServiceWorker: ', error);
                     });
+                })
+                .catch(function(error) {
+                    console.log('❌ Error registrando ServiceWorker: ', error);
+                    console.log('Detalles del error:', error.message);
+                });
             });
 
             // Escuchar mensajes del Service Worker
@@ -63,6 +70,8 @@
                     showUpdateNotification();
                 }
             });
+        } else {
+            console.log('❌ Service Worker no soportado en este navegador');
         }
 
         // Verificar conexión
