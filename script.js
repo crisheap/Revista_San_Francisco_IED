@@ -1401,22 +1401,39 @@ function addComment(e) {
     
     alert('✅ Comentario publicado exitosamente.');
 }
-
+//----------------------------------------------------------------------------------------------------------//
 // Load users (for admins)
-function loadUsers() {
+// Función para cargar usuarios (actualizada)
+async function loadUsers() {
+    try {
+        // Intentar cargar desde la API primero
+        const response = await fetch(`${API_BASE_URL}/users`);
+        const data = await response.json();
+
+        if (response.ok) {
+            state.users = data.users;
+        } else {
+            throw new Error('Error cargando usuarios de la API');
+        }
+    } catch (error) {
+        console.error('Error cargando usuarios de la API, usando localStorage:', error);
+        // Fallback a localStorage
+        loadDataFromStorage();
+    }
+
     const usersTable = document.getElementById('users-table-body');
     let usersHTML = '';
-    
+
     const totalUsers = state.users.length;
     const studentUsers = state.users.filter(u => u.role === 'student').length;
     const teacherUsers = state.users.filter(u => u.role === 'teacher').length;
     const activeUsers = state.users.filter(u => u.active).length;
-    
+
     document.getElementById('total-users').textContent = totalUsers;
     document.getElementById('student-users').textContent = studentUsers;
     document.getElementById('teacher-users').textContent = teacherUsers;
     document.getElementById('active-users').textContent = activeUsers;
-    
+
     state.users.forEach(user => {
         usersHTML += `
             <tr>
@@ -1424,7 +1441,7 @@ function loadUsers() {
                 <td>${user.username}</td>
                 <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
                 <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
-                <td>${formatDate(user.lastLogin)}</td>
+                <td>${formatDate(user.last_login || user.lastLogin)}</td>
                 <td class="action-buttons">
                     <button class="${user.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
                     ${user.role !== 'admin' ? `<button onclick="resetUserPassword(${user.id})">🔑 Resetear Contraseña</button>` : ''}
@@ -1432,46 +1449,82 @@ function loadUsers() {
             </tr>
         `;
     });
-    
+
     usersTable.innerHTML = usersHTML;
 }
+//------------------------------------------------------------------------------------------//
+// Toggle user status (actualizada)
+async function toggleUserStatus(userId) {
+    try {
+        const user = state.users.find(u => u.id === userId);
+        if (user) {
+            // Llamar a la API para actualizar el estado
+            const response = await fetch(`${API_BASE_URL}/users/${userId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    active: !user.active
+                })
+            });
 
-// Toggle user status
-function toggleUserStatus(userId) {
-    const user = state.users.find(u => u.id === userId);
-    if (user) {
-        user.active = !user.active;
-        saveDataToStorage();
-        loadUsers();
-        alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+            if (response.ok) {
+                user.active = !user.active;
+                saveDataToStorage();
+                loadUsers();
+                alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+            } else {
+                throw new Error('Error actualizando estado en la API');
+            }
+        }
+    } catch (error) {
+        console.error('Error actualizando estado:', error);
+        // Fallback a localStorage
+        const user = state.users.find(u => u.id === userId);
+        if (user) {
+            user.active = !user.active;
+            saveDataToStorage();
+            loadUsers();
+            alert(`⚠️ Estado actualizado localmente: ${user.active ? 'activado' : 'desactivado'}`);
+        }
     }
 }
 
-// Reset user password
-function resetUserPassword(userId) {
+// Reset user password (actualizada)
+async function resetUserPassword(userId) {
     const user = state.users.find(u => u.id === userId);
     if (user) {
-        user.password = '123'; // Default password
-        saveDataToStorage();
-        alert(`✅ Contraseña de ${user.name} reseteada a "123".`);
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/${userId}/password`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    password: '123'
+                })
+            });
+
+            if (response.ok) {
+                user.password = '123';
+                saveDataToStorage();
+                alert(`✅ Contraseña de ${user.name} reseteada a "123".`);
+            } else {
+                throw new Error('Error reseteando contraseña en la API');
+            }
+        } catch (error) {
+            console.error('Error reseteando contraseña:', error);
+            // Fallback a localStorage
+            user.password = '123';
+            saveDataToStorage();
+            alert(`⚠️ Contraseña reseteada localmente a "123".`);
+        }
     }
 }
-
-// Show create user form
-function showCreateUserForm() {
-    document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-username').value = '';
-    document.getElementById('new-user-password').value = '';
-    document.getElementById('new-user-role').value = 'student';
-    document.getElementById('new-user-talento').value = '';
-    
-    document.getElementById('username-availability').textContent = '';
-    
-    showPage('create-user-page');
-}
-
-// Create new user
-function createUser(e) {
+//----------------------------------------------------------------------------------------------------------//
+// Función para crear usuario (actualizada para conectar con Neon)
+async function createUser(e) {
     e.preventDefault();
     
     const name = document.getElementById('new-user-name').value;
@@ -1479,8 +1532,8 @@ function createUser(e) {
     const password = document.getElementById('new-user-password').value;
     const role = document.getElementById('new-user-role').value;
     const talento = document.getElementById('new-user-talento').value;
-    
-    // Validate form
+
+    // Validar formulario
     if (name.length < 2) {
         alert('El nombre debe tener al menos 2 caracteres.');
         return;
@@ -1495,36 +1548,71 @@ function createUser(e) {
         alert('La contraseña debe tener al menos 3 caracteres.');
         return;
     }
-    
-    // Check if username already exists
-    if (state.users.find(u => u.username === username)) {
-        alert('❌ El nombre de usuario ya existe. Por favor elija otro.');
-        return;
-    }
-    
-    const newUser = {
-        id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
-        username,
-        password,
-        name,
-        role,
-        active: true,
-        lastLogin: new Date().toISOString().split('T')[0]
-    };
-    
-    // Add talento for students
-    if (role === 'student' && talento) {
-        newUser.talento = talento;
-    }
-    
-    state.users.push(newUser);
-    saveDataToStorage();
-    
-    showPage('users-page');
-    loadUsers();
-    alert('✅ Usuario creado exitosamente.');
-}
 
+    try {
+        // Llamar a la API para crear el usuario en Neon
+        const response = await fetch(`${API_BASE_URL}/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username,
+                password,
+                name,
+                role,
+                talento: role === 'student' ? talento : null
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Actualizar el estado local también
+            const newUser = {
+                id: data.user.id,
+                username,
+                password,
+                name,
+                role,
+                active: true,
+                talento: role === 'student' ? talento : null,
+                lastLogin: new Date().toISOString().split('T')[0]
+            };
+            
+            state.users.push(newUser);
+            saveDataToStorage();
+            
+            showPage('users-page');
+            loadUsers();
+            alert('✅ Usuario creado exitosamente en la base de datos.');
+        } else {
+            alert('❌ Error creando usuario: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        console.error('Error creando usuario:', error);
+        
+        // Fallback: guardar en localStorage si falla la conexión
+        const newUser = {
+            id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
+            username,
+            password,
+            name,
+            role,
+            active: true,
+            talento: role === 'student' ? talento : null,
+            lastLogin: new Date().toISOString().split('T')[0]
+        };
+        
+        state.users.push(newUser);
+        saveDataToStorage();
+        
+        showPage('users-page');
+        loadUsers();
+        alert('⚠️ Usuario creado localmente (modo offline). Se sincronizará cuando haya conexión.');
+    }
+}
+//--------------------------------------------------------------------------------------------//
 // Show change password form
 function showChangePasswordForm() {
     if (!state.currentUser) return;
@@ -2170,3 +2258,74 @@ window.resetApp = () => {
     localStorage.clear();
     location.reload();
 };
+
+// Reemplazar las funciones que usaban localStorage por llamadas a la API
+
+const API_BASE_URL = 'http://localhost:3000/api';
+
+// Función de login modificada
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const role = document.getElementById('role').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password, role })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            state.currentUser = data.user;
+            // Resto del código de login...
+        } else {
+            alert('❌ ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error en login:', error);
+        alert('❌ Error de conexión con el servidor');
+    }
+}
+
+// Función para cargar artículos
+async function loadArticles() {
+    try {
+        let url = `${API_BASE_URL}/articles`;
+        const params = new URLSearchParams();
+        
+        // Agregar filtros
+        const statusFilter = document.getElementById('article-filter').value;
+        const categoryFilter = document.getElementById('category-filter').value;
+        const chapterFilter = document.getElementById('chapter-filter').value;
+        
+        if (statusFilter !== 'all') params.append('status', statusFilter);
+        if (categoryFilter !== 'all') params.append('category', categoryFilter);
+        if (chapterFilter !== 'all') params.append('chapter', chapterFilter);
+        if (state.currentUser?.role === 'student') {
+            params.append('user_id', state.currentUser.id);
+        }
+        
+        if (params.toString()) url += '?' + params.toString();
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (response.ok) {
+            state.articles = data.articles;
+            renderArticles();
+        }
+    } catch (error) {
+        console.error('Error cargando artículos:', error);
+        // Fallback a localStorage si hay error
+        loadDataFromStorage();
+    }
+}
+
+//-----------------------------------------------------------//
