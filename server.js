@@ -108,32 +108,33 @@ app.post('/api/login', async (req, res) => {
     try {
         const { username, password, role } = req.body;
         
-        if (!username || !password || !role) {
-            return res.status(400).json({ error: 'Todos los campos son requeridos' });
-        }
+        console.log(`🔐 Intento de login: ${username}, rol: ${role}`);
         
         const result = await query(
             'SELECT id, username, name, role, talento, active, last_login FROM users WHERE username = $1 AND password = $2 AND role = $3 AND active = true',
             [username, password, role]
         );
 
+        console.log(`📊 Resultado de BD: ${result.rows.length} usuarios encontrados`);
+        
         if (result.rows.length === 0) {
+            console.log(`❌ Login fallido para: ${username}`);
             return res.status(401).json({ error: 'Credenciales incorrectas o usuario inactivo' });
         }
 
+        const user = result.rows[0];
+        console.log(`✅ Login exitoso: ${user.name} (${user.role})`);
+        
         // Actualizar último login
         await query(
             'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-            [result.rows[0].id]
+            [user.id]
         );
 
-        res.json({ 
-            success: true,
-            user: result.rows[0] 
-        });
+        res.json({ user });
     } catch (error) {
-        console.error('Error en login:', error);
-        res.status(500).json({ error: 'Error del servidor al procesar el login' });
+        console.error('💥 Error en login:', error);
+        res.status(500).json({ error: 'Error del servidor' });
     }
 });
 

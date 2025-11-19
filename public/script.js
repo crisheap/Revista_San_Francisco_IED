@@ -216,75 +216,67 @@ function saveDataToStorage() {
     }
 }
 
-// Handle user login - ACTUALIZADA PARA PRODUCCIÓN
-async function handleLogin(e) {
+// FUNCIÓN DE LOGIN ACTUALIZADA - SOLO BASE DE DATOS
+/*async function handleLogin(e) {
     e.preventDefault();
     
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
     
-    // Validación básica
-    if (!username || !password || !role) {
-        alert('❌ Por favor completa todos los campos');
-        return;
-    }
-    
+    // Mostrar loading
+    const loginBtn = document.querySelector('#login-form button[type="submit"]');
+    const originalText = loginBtn.textContent;
+    loginBtn.textContent = '🔐 Conectando...';
+    loginBtn.disabled = true;
+
     try {
-        const data = await apiRequest('/login', {
+        console.log('🔗 Intentando login con:', { username, role });
+        
+        const response = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ username, password, role })
         });
+
+        const data = await response.json();
         
-        if (data.success && data.user) {
+        if (response.ok) {
+            console.log('✅ Login exitoso:', data.user);
             state.currentUser = data.user;
             
-            // Actualizar estado local
-            const userIndex = state.users.findIndex(u => u.id === data.user.id);
-            if (userIndex !== -1) {
-                state.users[userIndex] = data.user;
-            } else {
-                state.users.push(data.user);
+            // Guardar en localStorage como backup
+            const savedUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+            const userExists = savedUsers.find(u => u.id === data.user.id);
+            if (!userExists) {
+                savedUsers.push(data.user);
+                localStorage.setItem('revista_users', JSON.stringify(savedUsers));
             }
             
-            saveDataToStorage();
+            // Actualizar UI
             updateUIForUser();
             showPage('dashboard-page');
             updateDashboard();
             updatePublicHeader();
             
-            // Cargar datos actualizados
-            await loadInitialData();
-            
-            alert(`✅ Bienvenido/a ${data.user.name}! Has ingresado como ${getRoleName(data.user.role)}`);
+            alert(`✅ ¡Bienvenido/a ${data.user.name}!`);
             
         } else {
-            alert('❌ Error en el login: ' + (data.error || 'Credenciales incorrectas'));
+            console.error('❌ Error en login:', data.error);
+            alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
         }
         
     } catch (error) {
-        if (error.message === 'OFFLINE_MODE') {
-            // Modo offline: buscar en datos locales
-            const user = state.users.find(u => 
-                u.username === username && u.password === password && u.role === role && u.active
-            );
-            
-            if (user) {
-                state.currentUser = user;
-                updateUIForUser();
-                showPage('dashboard-page');
-                updateDashboard();
-                updatePublicHeader();
-                alert(`✅ Bienvenido/a ${user.name} (Modo Offline)`);
-            } else {
-                alert('❌ Credenciales incorrectas o sin conexión');
-            }
-        } else {
-            console.error('Error en login:', error);
-            alert('❌ Error de conexión. Intenta más tarde.');
-        }
+        console.error('🌐 Error de conexión:', error);
+        alert('❌ Error de conexión con el servidor. Verifica tu internet.');
+    } finally {
+        // Restaurar botón
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
     }
-}
+}*/
 
 // Create user - ACTUALIZADA PARA PRODUCCIÓN
 async function createUser(e) {
@@ -755,30 +747,29 @@ function setupEventListeners() {
     });
 }
 
-// Load data from localStorage - FUNCIÓN CORREGIDA
 function loadDataFromStorage() {
-    try {
-        const savedUsers = localStorage.getItem('revista_users');
-        const savedArticles = localStorage.getItem('revista_articles');
-        const savedNotifications = localStorage.getItem('revista_notifications');
-        
-        // Usar arrays vacíos si no hay datos en localStorage
-        state.users = savedUsers ? JSON.parse(savedUsers) : [];
-        state.articles = savedArticles ? JSON.parse(savedArticles) : [];
-        state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [];
-        
-        console.log('📁 Datos cargados desde localStorage:', {
-            users: state.users.length,
-            articles: state.articles.length,
-            notifications: state.notifications.length
-        });
-    } catch (error) {
-        console.error('❌ Error cargando datos de localStorage:', error);
-        // Inicializar con arrays vacíos
-        state.users = [];
-        state.articles = [];
-        state.notifications = [];
-    }
+    // SOLO cargar notificaciones y artículos locales
+    // LOS USUARIOS SIEMPRE se cargan desde la base de datos
+    const savedArticles = localStorage.getItem('revista_articles');
+    const savedNotifications = localStorage.getItem('revista_notifications');
+    
+    // Datos de respaldo MUY básicos
+    const backupArticles = [];
+    const backupNotifications = [
+        { 
+            id: 1, 
+            title: 'Bienvenido/a', 
+            content: 'Conectado al sistema', 
+            type: 'info', 
+            read: false, 
+            createdAt: new Date().toISOString().split('T')[0]
+        }
+    ];
+    
+    // NO cargar usuarios desde localStorage
+    state.users = []; // Vacío - se cargarán desde la BD cuando sea necesario
+    state.articles = savedArticles ? JSON.parse(savedArticles) : backupArticles;
+    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : backupNotifications;
 }
 
 // Save data to localStorage
