@@ -40,6 +40,16 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
+// CORS configurado para Render
+app.use(cors({
+    origin: [
+        'https://revista-san-francisco-ied.onrender.com',
+        'http://localhost:10000',
+        'http://localhost:3000'
+    ],
+    credentials: true
+}));
+
 app.use(cors(corsOptions));
 
 // Manejar preflight OPTIONS requests
@@ -54,6 +64,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
     maxAge: '1d', // Cache por 1 día
     etag: false
 }));
+
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware para manejar errores de archivos estáticos silenciosamente
 app.use((req, res, next) => {
@@ -113,6 +126,15 @@ app.get('/api/health', async (req, res) => {
             error: error.message 
         });
     }
+});
+
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Revista Digital CSF - Servidor funcionando',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+    });
 });
 
 // Autenticación
@@ -661,6 +683,26 @@ app.get('/offline.html', (req, res) => {
 });
 
 // IMPORTANTE: Esta ruta debe ir AL FINAL - Maneja todas las rutas del frontend
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+/*const PORT = process.env.PORT || 10000;*/
+// Iniciar servidor
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`
+==================================================
+🚀 REVISTA DIGITAL CSF - SERVIDOR INICIADO
+==================================================
+📍 Puerto: ${PORT}
+🌍 Entorno: ${process.env.NODE_ENV || 'development'}
+📊 Base de datos: Neon PostgreSQL
+🔗 URL: https://revista-san-francisco-ied.onrender.com
+🔗 Health Check: /api/health
+==================================================
+    `);
+});
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

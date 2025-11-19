@@ -19,7 +19,7 @@ function getApiBaseUrl() {
     // Desarrollo local
     return 'http://localhost:3000/api';
 }
-const API_BASE_URL = getApiBaseUrl();
+/*const API_BASE_URL = getApiBaseUrl();*/
 console.log('🔗 Conectando a API:', API_BASE_URL);
 
 // Función mejorada para llamadas a la API
@@ -2883,3 +2883,18 @@ window.resetApp = () => {
 
 
 //-----------------------------------------------------------//
+// En script.js - Configuración automática para producción
+const API_BASE_URL = (function() {
+    // Si estamos en el dominio de Render, usar esa URL
+    if (window.location.hostname.includes('onrender.com')) {
+        return 'https://revista-san-francisco-ied.onrender.com/api';
+    }
+    // Si estamos en localhost, usar puerto 10000
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:10000/api';
+    }
+    // Para cualquier otro caso, usar la misma URL actual
+    return window.location.origin + '/api';
+})();
+
+console.log('🌐 API Base URL detectada:', API_BASE_URL);
