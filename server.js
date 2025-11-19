@@ -104,36 +104,33 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Autenticación
+// Autenticación
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password, role } = req.body;
         
-        console.log(`🔐 Intento de login: ${username}, rol: ${role}`);
+        console.log('🔐 Intento de login:', { username, role });
         
         const result = await query(
             'SELECT id, username, name, role, talento, active, last_login FROM users WHERE username = $1 AND password = $2 AND role = $3 AND active = true',
             [username, password, role]
         );
 
-        console.log(`📊 Resultado de BD: ${result.rows.length} usuarios encontrados`);
-        
         if (result.rows.length === 0) {
-            console.log(`❌ Login fallido para: ${username}`);
+            console.log('❌ Login fallido para:', username);
             return res.status(401).json({ error: 'Credenciales incorrectas o usuario inactivo' });
         }
 
-        const user = result.rows[0];
-        console.log(`✅ Login exitoso: ${user.name} (${user.role})`);
-        
         // Actualizar último login
         await query(
             'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-            [user.id]
+            [result.rows[0].id]
         );
 
-        res.json({ user });
+        console.log('✅ Login exitoso para:', result.rows[0].name);
+        res.json({ user: result.rows[0] });
     } catch (error) {
-        console.error('💥 Error en login:', error);
+        console.error('Error en login:', error);
         res.status(500).json({ error: 'Error del servidor' });
     }
 });
@@ -634,4 +631,13 @@ app.listen(PORT, '0.0.0.0', () => {
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Ruta de salud para verificar que el servidor está funcionando
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        message: '✅ API de Revista Digital funcionando correctamente',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
 });

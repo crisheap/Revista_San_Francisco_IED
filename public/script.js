@@ -687,15 +687,29 @@ console.log('🔧 Frontend configurado para producción');
 // =======================
 
 // Initialize application
-function initApp() {
-    // Load data from localStorage or use sample data
+// Initialize application
+async function initApp() {
+    console.log('🚀 Inicializando Revista Digital CSF...');
+    
+    try {
+        // Probar conexión con la API
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+            const health = await response.json();
+            console.log('✅ API conectada:', health.message);
+        } else {
+            throw new Error('API no responde correctamente');
+        }
+        
+    } catch (error) {
+        console.log('📱 Modo offline - Usando datos locales');
+    }
+    
+    // Cargar datos desde localStorage
     loadDataFromStorage();
     
     // Set up event listeners
     setupEventListeners();
-    
-    // Add search functionality
-    addSearchFunctionality();
     
     // Load public magazine by default
     loadPublicMagazine();
@@ -1083,44 +1097,108 @@ function closeSearchModal() {
     if (modal) modal.remove();
 }
 
-// Handle user login
-function handleLogin(e) {
+// Handle user login - CORREGIDA PARA USAR LA API
+async function handleLogin(e) {
     e.preventDefault();
     
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
     
-    const user = state.users.find(u => 
-        u.username === username && u.password === password && u.role === role && u.active
-    );
-    
-    if (user) {
-        state.currentUser = user;
+    // Mostrar loading
+    const loginBtn = document.querySelector('#login-form button[type="submit"]');
+    const originalText = loginBtn.textContent;
+    loginBtn.textContent = '🔐 Conectando...';
+    loginBtn.disabled = true;
+
+    try {
+        console.log('🔗 Intentando login con:', { username, role });
         
-        // Update last login
-        user.lastLogin = new Date().toISOString().split('T')[0];
-        saveDataToStorage();
-        
-        updateUIForUser();
-        showPage('dashboard-page');
-        updateDashboard();
-        updatePublicHeader();
-        
-        // Add login notification
-        state.notifications.unshift({
-            id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-            title: '👋 ¡Bienvenido/a!',
-            content: `Has iniciado sesión correctamente como ${getRoleName(user.role)}`,
-            type: 'info',
-            read: false,
-            createdAt: new Date().toISOString().split('T')[0]
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password, role })
         });
-        saveDataToStorage();
+
+        const data = await response.json();
         
-        alert(`✅ Bienvenido/a ${user.name}! Has ingresado como ${getRoleName(user.role)}`);
-    } else {
-        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.💡');
+        if (response.ok) {
+            console.log('✅ Login exitoso:', data.user);
+            state.currentUser = data.user;
+            
+            // Guardar en localStorage como backup
+            const savedUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+            const userExists = savedUsers.find(u => u.id === data.user.id);
+            if (!userExists) {
+                savedUsers.push({
+                    ...data.user,
+                    password: password // Guardar temporalmente para modo offline
+                });
+                localStorage.setItem('revista_users', JSON.stringify(savedUsers));
+            }
+            
+            // Actualizar UI
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            
+            // Cargar datos después del login
+            setTimeout(() => {
+                loadArticles();
+                if (data.user.role === 'admin') {
+                    loadUsers();
+                }
+            }, 500);
+            
+            alert(`✅ ¡Bienvenido/a ${data.user.name}!`);
+            
+        } else {
+            console.error('❌ Error en login:', data.error);
+            
+            // Intentar con datos locales como fallback
+            const localUser = state.users.find(u => 
+                u.username === username && u.password === password && u.role === role && u.active
+            );
+            
+            if (localUser) {
+                console.log('📱 Usando datos locales como fallback');
+                state.currentUser = localUser;
+                updateUIForUser();
+                showPage('dashboard-page');
+                updateDashboard();
+                updatePublicHeader();
+                alert(`⚠️ Modo offline - Bienvenido/a ${localUser.name}`);
+            } else {
+                alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
+            }
+        }
+        
+    } catch (error) {
+        console.error('🌐 Error de conexión:', error);
+        
+        // Fallback a datos locales
+        const localUser = state.users.find(u => 
+            u.username === username && u.password === password && u.role === role && u.active
+        );
+        
+        if (localUser) {
+            console.log('📱 Modo offline - Login con datos locales');
+            state.currentUser = localUser;
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            alert(`⚠️ Sin conexión - Bienvenido/a ${localUser.name}`);
+        } else {
+            alert('❌ Error de conexión y no hay datos locales. Verifica tu internet.');
+        }
+    } finally {
+        // Restaurar botón
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
     }
 }
 
