@@ -7,10 +7,7 @@ const { query } = require('./database');
 const { initializeDatabase } = require('./init-db');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Configuración de CORS para producción
-const cors = require('cors');
+const PORT = process.env.PORT || 3000;
 
 // Configuración de CORS más permisiva para producción
 const corsOptions = {
