@@ -116,34 +116,98 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Autenticación
-// Autenticación
+// En server.js - Ruta de login corregida
 app.post('/api/login', async (req, res) => {
+    let client;
     try {
         const { username, password, role } = req.body;
         
-        console.log('🔐 Intento de login:', { username, role });
+        console.log('🔐 Intento de login recibido:', { 
+            username, 
+            role, 
+            timestamp: new Date().toISOString() 
+        });
+
+        // Validaciones básicas
+        if (!username || !password || !role) {
+            return res.status(400).json({ 
+                error: 'Todos los campos son requeridos' 
+            });
+        }
+
+        // Usar transacción para mayor seguridad
+        client = await pool.connect();
         
-        const result = await query(
-            'SELECT id, username, name, role, talento, active, last_login FROM users WHERE username = $1 AND password = $2 AND role = $3 AND active = true',
-            [username, password, role]
+        // Consulta corregida - verificar usuario y contraseña
+        const result = await client.query(
+            `SELECT 
+                id, 
+                username, 
+                password, 
+                name, 
+                role, 
+                talento, 
+                active, 
+                last_login,
+                created_at
+             FROM users 
+             WHERE username = $1 
+             AND role = $2 
+             AND active = true`,
+            [username.trim(), role]
         );
 
+        console.log('📋 Usuarios encontrados:', result.rows.length);
+
         if (result.rows.length === 0) {
-            console.log('❌ Login fallido para:', username);
-            return res.status(401).json({ error: 'Credenciales incorrectas o usuario inactivo' });
+            return res.status(401).json({ 
+                error: 'Usuario no encontrado, rol incorrecto o usuario inactivo' 
+            });
+        }
+
+        const user = result.rows[0];
+        
+        // Verificar contraseña (texto plano por ahora - mejorar con bcrypt en producción)
+        if (password !== user.password) {
+            console.log('❌ Contraseña incorrecta para usuario:', username);
+            return res.status(401).json({ 
+                error: 'Contraseña incorrecta' 
+            });
         }
 
         // Actualizar último login
-        await query(
+        await client.query(
             'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-            [result.rows[0].id]
+            [user.id]
         );
 
-        console.log('✅ Login exitoso para:', result.rows[0].name);
-        res.json({ user: result.rows[0] });
+        // Preparar respuesta sin información sensible
+        const userResponse = {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            talento: user.talento,
+            active: user.active,
+            lastLogin: user.last_login
+        };
+
+        console.log('✅ Login exitoso para:', user.name, `(ID: ${user.id})`);
+        
+        res.json({ 
+            success: true,
+            message: 'Login exitoso',
+            user: userResponse
+        });
+
     } catch (error) {
-        console.error('Error en login:', error);
-        res.status(500).json({ error: 'Error del servidor' });
+        console.error('❌ Error en endpoint de login:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    } finally {
+        if (client) client.release();
     }
 });
 
