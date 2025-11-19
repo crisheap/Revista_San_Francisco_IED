@@ -7,179 +7,79 @@ const state = {
     notifications: []
 };
 
-// Datos de la estructura de los roles de los usuarios
-const sampleUsers = [
-    { 
-        id: 1, 
-        username: 'estudiante1', 
-        password: '123', 
-        name: 'Juan Pérez', 
-        role: 'student', 
-        active: true,
-        talento: 'artistico',
-        lastLogin: '2025-03-20'
-    },
-    { 
-        id: 2, 
-        username: 'docente1', 
-        password: '123', 
-        name: 'María González', 
-        role: 'teacher', 
-        active: true,
-        lastLogin: '2025-03-21'
-    },
-    { 
-        id: 3, 
-        username: 'admin', 
-        password: 'admin', 
-        name: 'Administrador Sistema', 
-        role: 'admin', 
-        active: true,
-        lastLogin: '2025-03-22'
-    },
-    { 
-        id: 4, 
-        username: 'padre1', 
-        password: '123', 
-        name: 'Carlos Rodríguez', 
-        role: 'parent', 
-        active: true,
-        lastLogin: '2025-03-19'
-    },
-    { 
-        id: 5, 
-        username: 'estudiante2', 
-        password: '123', 
-        name: 'Ana López', 
-        role: 'student', 
-        active: true,
-        talento: 'musical',
-        lastLogin: '2025-03-18'
+// Configuración automática de API URL para producción
+function getApiBaseUrl() {
+    const currentUrl = window.location.origin;
+    
+    // Si estamos en el mismo dominio de Render, usar rutas relativas
+    if (currentUrl.includes('onrender.com')) {
+        return currentUrl + '/api';
     }
-];
+    
+    // Desarrollo local
+    return 'http://localhost:3000/api';
+}
+/*const API_BASE_URL = getApiBaseUrl();*/
+console.log('🔗 Conectando a API:', API_BASE_URL);
 
-const sampleArticles = [
-    {
-        id: 1,
-        title: 'Nuestro equipo de fútbol gana el torneo regional',
-        category: 'deportivo',
-        chapter: 'portafolios',
-        content: 'El equipo de fútbol del Colegio San Francisco IED ha logrado una victoria histórica en el torneo regional, demostrando disciplina, trabajo en equipo y talento deportivo. Los estudiantes entrenaron durante meses bajo la guía del profesor de educación física, combinando sus estudios académicos con la práctica deportiva.\n\nEsta victoria no solo representa un logro deportivo, sino también el fruto del esfuerzo y dedicación de nuestros jóvenes talentos.',
-        author: 'Juan Pérez',
-        authorId: 1,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-15',
-        comments: [
-            { id: 1, author: 'Carlos Rodríguez', content: '¡Felicidades a todo el equipo! Estamos muy orgullosos del esfuerzo y dedicación.', createdAt: '2025-03-16' },
-            { id: 2, author: 'María González', content: 'Estoy muy orgullosa de nuestros estudiantes. Este logro demuestra que con perseverancia se alcanzan las metas.', createdAt: '2025-03-16' }
-        ]
-    },
-    {
-        id: 2,
-        title: 'Concierto de primavera del coro estudiantil',
-        category: 'musical',
-        chapter: 'portafolios',
-        content: 'El coro estudiantil presentó un emotivo concierto de primavera con canciones tradicionales colombianas y piezas contemporáneas. Bajo la dirección de la profesora de música, los estudiantes demostraron su talento musical y capacidad de trabajo en equipo.\n\nEl evento contó con la participación de más de 30 estudiantes de diferentes grados, quienes dedicaron horas de ensayo para perfeccionar cada nota.',
-        author: 'Ana López',
-        authorId: 5,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-10',
-        comments: [
-            { id: 3, author: 'Padre de Familia', content: '¡Qué hermoso concierto! Felicitaciones a todos los participantes.', createdAt: '2025-03-11' }
-        ]
-    },
-    {
-        id: 3,
-        title: 'Taller de robótica educativa',
-        category: 'tecnologico',
-        chapter: 'experiencias',
-        content: 'El programa Talentos implementó un taller de robótica educativa donde los estudiantes aprendieron programación básica y construcción de robots. Esta experiencia pedagógica innovadora permitió desarrollar habilidades de pensamiento lógico y resolución de problemas.\n\nLos estudiantes trabajaron en equipos colaborativos, diseñando y programando sus propios robots para resolver desafíos específicos.',
-        author: 'María González',
-        authorId: 2,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-18',
-        comments: []
-    },
-    {
-        id: 4,
-        title: 'Reflexiones sobre ser talentoso en colegio público',
-        category: 'linguistico',
-        chapter: 'posicionamiento',
-        content: 'Ser un estudiante con talentos excepcionales en un colegio público de estrato 2 representa tanto desafíos como oportunidades únicas. Esta reflexión busca analizar las experiencias de nuestros estudiantes y el papel de la institución en el desarrollo de sus capacidades.\n\nLa diversidad de nuestro entorno enriquece el proceso educativo y nos enseña que el talento florece en cualquier contexto cuando se le brindan las herramientas adecuadas.',
-        author: 'Juan Pérez',
-        authorId: 1,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-22',
-        comments: []
-    },
-    {
-        id: 5,
-        title: 'Nueva obra de teatro estudiantil',
-        category: 'artistico',
-        chapter: 'portafolios',
-        content: 'El grupo de teatro del colegio está preparando una nueva obra que será presentada en el festival intercolegial. Los estudiantes han estado trabajando en el guión, escenografía y actuación durante los últimos dos meses.\n\nEsta producción representa un esfuerzo colaborativo que integra múltiples talentos artísticos de nuestra comunidad educativa.',
-        author: 'Ana López',
-        authorId: 5,
-        image: '',
-        imageFile: null,
-        status: 'pending',
-        createdAt: '2025-03-20',
-        comments: []
+// Función mejorada para llamadas a la API
+async function apiRequest(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error(`❌ Error en API ${endpoint}:`, error);
+        
+        // Si es error de conexión, usar datos locales
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            console.log('🌐 Sin conexión, usando datos locales...');
+            throw new Error('OFFLINE_MODE');
+        }
+        
+        throw error;
     }
-];
-
-const sampleNotifications = [
-    { 
-        id: 1, 
-        title: 'Nuevo artículo pendiente', 
-        content: 'Hay un nuevo artículo esperando revisión: "Nueva obra de teatro estudiantil"', 
-        type: 'warning', 
-        read: false, 
-        createdAt: '2025-03-21',
-        link: 'pending-articles-page'
-    },
-    { 
-        id: 2, 
-        title: 'Artículo publicado', 
-        content: 'Tu artículo "Concierto de primavera" ha sido publicado exitosamente', 
-        type: 'success', 
-        read: true, 
-        createdAt: '2025-03-18',
-        link: 'articles-page'
-    },
-    { 
-        id: 3, 
-        title: 'Recordatorio de reunión', 
-        content: 'Reunión de padres del Programa Talentos el próximo viernes a las 3:00 PM', 
-        type: 'info', 
-        read: false, 
-        createdAt: '2025-03-20',
-        link: 'dashboard-page'
-    }
-];
-
-// =======================
-// FUNCIONES PRINCIPALES MEJORADAS
-// =======================
+}
 
 // Initialize application
-function initApp() {
-    // Load data from localStorage or use sample data
-    loadDataFromStorage();
+async function initApp() {
+    console.log('🚀 Inicializando Revista Digital CSF...');
+    
+    try {
+        // Probar conexión con la API
+        const health = await apiRequest('/health');
+        console.log('✅ API conectada:', health.message);
+        
+        // Cargar datos iniciales
+        await loadInitialData();
+        
+    } catch (error) {
+        if (error.message === 'OFFLINE_MODE') {
+            console.log('📱 Modo offline activado');
+            // Cargar datos desde localStorage
+            loadDataFromStorage();
+        } else {
+            console.error('❌ Error inicializando app:', error);
+            // Fallback a datos locales
+            loadDataFromStorage();
+        }
+    }
     
     // Set up event listeners
     setupEventListeners();
-    
-    // Add search functionality
-    addSearchFunctionality();
     
     // Load public magazine by default
     loadPublicMagazine();
@@ -189,6 +89,28 @@ function initApp() {
     updatePublicHeader();
     
     console.log('✅ Sistema de Revista Digital inicializado correctamente');
+}
+
+// Cargar datos iniciales desde la API
+async function loadInitialData() {
+    try {
+        // Cargar artículos públicos
+        const articlesData = await apiRequest('/articles?status=published');
+        state.articles = articlesData.articles || [];
+        
+        // Cargar usuarios (solo si es admin)
+        if (state.currentUser && state.currentUser.role === 'admin') {
+            const usersData = await apiRequest('/users');
+            state.users = usersData.users || [];
+        }
+        
+        // Guardar en localStorage como backup
+        saveDataToStorage();
+        
+    } catch (error) {
+        console.error('Error cargando datos iniciales:', error);
+        throw error;
+    }
 }
 
 // Setup event listeners
@@ -220,23 +142,659 @@ function setupEventListeners() {
     });
 }
 
-// Load data from localStorage
+// EN script.js - REEMPLAZA la función loadDataFromStorage:
+
 function loadDataFromStorage() {
     const savedUsers = localStorage.getItem('revista_users');
     const savedArticles = localStorage.getItem('revista_articles');
     const savedNotifications = localStorage.getItem('revista_notifications');
     
-    state.users = savedUsers ? JSON.parse(savedUsers) : [...sampleUsers];
-    state.articles = savedArticles ? JSON.parse(savedArticles) : [...sampleArticles];
-    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [...sampleNotifications];
+    // Datos de respaldo para cuando no hay conexión
+    const backupUsers = [
+        { 
+            id: 1, 
+            username: 'admin', 
+            password: 'admin', 
+            name: 'Administrador Sistema', 
+            role: 'admin', 
+            active: true,
+            lastLogin: new Date().toISOString().split('T')[0]
+        },
+        { 
+            id: 2, 
+            username: 'docente1', 
+            password: '123', 
+            name: 'María González', 
+            role: 'teacher', 
+            active: true,
+            lastLogin: new Date().toISOString().split('T')[0]
+        },
+        { 
+            id: 3, 
+            username: 'estudiante1', 
+            password: '123', 
+            name: 'Juan Pérez', 
+            role: 'student', 
+            active: true,
+            talento: 'artistico',
+            lastLogin: new Date().toISOString().split('T')[0]
+        }
+    ];
+
+    const backupArticles = [
+        {
+            id: 1,
+            title: 'Bienvenido a la Revista Digital',
+            category: 'tecnologico',
+            chapter: 'portafolios',
+            content: 'Esta es la Revista Digital del Colegio San Francisco IED. Conéctate a internet para ver todos los artículos.',
+            author: 'Sistema',
+            authorId: 1,
+            image: '',
+            imageFile: null,
+            status: 'published',
+            createdAt: new Date().toISOString().split('T')[0],
+            comments: []
+        }
+    ];
+
+    const backupNotifications = [
+        { 
+            id: 1, 
+            title: 'Bienvenido/a', 
+            content: 'Conéctate a internet para acceder a todas las funciones', 
+            type: 'info', 
+            read: false, 
+            createdAt: new Date().toISOString().split('T')[0],
+            link: 'dashboard-page'
+        }
+    ];
     
-    // Convertir imageFile de string base64 a Blob si existe
-    state.articles.forEach(article => {
-        if (article.imageFile && typeof article.imageFile === 'string') {
-            // En un sistema real, aquí se reconstruiría el Blob desde base64
-            // Por simplicidad, mantenemos la URL de imagen si existe
+    state.users = savedUsers ? JSON.parse(savedUsers) : backupUsers;
+    state.articles = savedArticles ? JSON.parse(savedArticles) : backupArticles;
+    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : backupNotifications;
+}
+
+// Save data to localStorage
+function saveDataToStorage() {
+    try {
+        localStorage.setItem('revista_users', JSON.stringify(state.users));
+        localStorage.setItem('revista_articles', JSON.stringify(state.articles));
+        localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
+        console.log('💾 Datos guardados en localStorage');
+    } catch (error) {
+        console.error('Error guardando en localStorage:', error);
+    }
+}
+
+// FUNCIÓN DE LOGIN ACTUALIZADA - SOLO BASE DE DATOS
+/*async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const role = document.getElementById('role').value;
+    
+    // Mostrar loading
+    const loginBtn = document.querySelector('#login-form button[type="submit"]');
+    const originalText = loginBtn.textContent;
+    loginBtn.textContent = '🔐 Conectando...';
+    loginBtn.disabled = true;
+
+    try {
+        console.log('🔗 Intentando login con:', { username, role });
+        
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password, role })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Login exitoso:', data.user);
+            state.currentUser = data.user;
+            
+            // Guardar en localStorage como backup
+            const savedUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+            const userExists = savedUsers.find(u => u.id === data.user.id);
+            if (!userExists) {
+                savedUsers.push(data.user);
+                localStorage.setItem('revista_users', JSON.stringify(savedUsers));
+            }
+            
+            // Actualizar UI
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            
+            alert(`✅ ¡Bienvenido/a ${data.user.name}!`);
+            
+        } else {
+            console.error('❌ Error en login:', data.error);
+            alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
+        }
+        
+    } catch (error) {
+        console.error('🌐 Error de conexión:', error);
+        alert('❌ Error de conexión con el servidor. Verifica tu internet.');
+    } finally {
+        // Restaurar botón
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
+    }
+}*/
+
+// Create user - ACTUALIZADA PARA PRODUCCIÓN
+async function createUser(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('new-user-name').value;
+    const username = document.getElementById('new-user-username').value;
+    const password = document.getElementById('new-user-password').value;
+    const role = document.getElementById('new-user-role').value;
+    const talento = document.getElementById('new-user-talento').value;
+
+    // Validar formulario
+    if (name.length < 2) {
+        alert('El nombre debe tener al menos 2 caracteres.');
+        return;
+    }
+    
+    if (username.length < 3) {
+        alert('El nombre de usuario debe tener al menos 3 caracteres.');
+        return;
+    }
+    
+    if (password.length < 3) {
+        alert('La contraseña debe tener al menos 3 caracteres.');
+        return;
+    }
+
+    try {
+        const data = await apiRequest('/users', {
+            method: 'POST',
+            body: JSON.stringify({
+                username,
+                password,
+                name,
+                role,
+                talento: role === 'student' ? talento : null
+            })
+        });
+
+        if (data.success) {
+            // Actualizar el estado local también
+            const newUser = {
+                id: data.user.id,
+                username,
+                password,
+                name,
+                role,
+                active: true,
+                talento: role === 'student' ? talento : null,
+                lastLogin: new Date().toISOString().split('T')[0]
+            };
+            
+            state.users.push(newUser);
+            saveDataToStorage();
+            
+            showPage('users-page');
+            loadUsers();
+            alert('✅ Usuario creado exitosamente en la base de datos.');
+        } else {
+            alert('❌ Error creando usuario: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        if (error.message === 'OFFLINE_MODE') {
+            // Fallback: guardar en localStorage si falla la conexión
+            const newUser = {
+                id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
+                username,
+                password,
+                name,
+                role,
+                active: true,
+                talento: role === 'student' ? talento : null,
+                lastLogin: new Date().toISOString().split('T')[0]
+            };
+            
+            state.users.push(newUser);
+            saveDataToStorage();
+            
+            showPage('users-page');
+            loadUsers();
+            alert('⚠️ Usuario creado localmente (modo offline). Se sincronizará cuando haya conexión.');
+        } else {
+            console.error('Error creando usuario:', error);
+            alert('❌ Error creando usuario: ' + (error.message || 'Error de conexión'));
+        }
+    }
+}
+
+// Load articles - ACTUALIZADA PARA PRODUCCIÓN
+async function loadArticles() {
+    const articlesGrid = document.getElementById('articles-grid');
+    
+    try {
+        let url = '/articles';
+        const params = new URLSearchParams();
+        
+        // Agregar filtros
+        const statusFilter = document.getElementById('article-filter').value;
+        const categoryFilter = document.getElementById('category-filter').value;
+        const chapterFilter = document.getElementById('chapter-filter').value;
+        
+        if (statusFilter !== 'all') params.append('status', statusFilter);
+        if (categoryFilter !== 'all') params.append('category', categoryFilter);
+        if (chapterFilter !== 'all') params.append('chapter', chapterFilter);
+        if (state.currentUser?.role === 'student') {
+            params.append('user_id', state.currentUser.id);
+        }
+        
+        if (params.toString()) url += '?' + params.toString();
+        
+        const data = await apiRequest(url);
+        state.articles = data.articles || [];
+        renderArticles();
+        
+    } catch (error) {
+        if (error.message === 'OFFLINE_MODE') {
+            console.log('📚 Cargando artículos desde localStorage');
+            // Usar datos locales y filtrar
+            filterLocalArticles();
+        } else {
+            console.error('Error cargando artículos:', error);
+            alert('❌ Error cargando artículos');
+        }
+    }
+}
+
+// Función para filtrar artículos locales
+function filterLocalArticles() {
+    const statusFilter = document.getElementById('article-filter').value;
+    const categoryFilter = document.getElementById('category-filter').value;
+    const chapterFilter = document.getElementById('chapter-filter').value;
+    
+    let filteredArticles = [...state.articles];
+    
+    if (statusFilter !== 'all') {
+        filteredArticles = filteredArticles.filter(a => a.status === statusFilter);
+    }
+    
+    if (categoryFilter !== 'all') {
+        filteredArticles = filteredArticles.filter(a => a.category === categoryFilter);
+    }
+    
+    if (chapterFilter !== 'all') {
+        filteredArticles = filteredArticles.filter(a => a.chapter === chapterFilter);
+    }
+    
+    if (state.currentUser?.role === 'student') {
+        filteredArticles = filteredArticles.filter(a => a.author_id === state.currentUser.id);
+    }
+    
+    renderFilteredArticles(filteredArticles);
+}
+
+// Renderizar artículos filtrados
+function renderFilteredArticles(articles) {
+    const articlesGrid = document.getElementById('articles-grid');
+    let articlesHTML = '';
+    
+    if (articles.length === 0) {
+        articlesHTML = '<div class="no-content"><p>No se encontraron artículos.</p></div>';
+    } else {
+        articles.forEach(article => {
+            const statusClass = `article-status status-${article.status}`;
+            const statusText = getStatusText(article.status);
+            
+            articlesHTML += `
+                <div class="article-card" onclick="showArticleDetail(${article.id})">
+                    <div class="article-image">
+                        ${article.imageFile ? 
+                            `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
+                            getCategoryIcon(article.category)
+                        }
+                    </div>
+                    <div class="article-content">
+                        <h3 class="article-title">${article.title}</h3>
+                        <div class="article-meta">
+                            <span>Por: ${article.author || article.author_name}</span>
+                            <span>${formatDate(article.created_at || article.createdAt)}</span>
+                        </div>
+                        <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
+                        <div class="article-meta">
+                            <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
+                            <span class="${statusClass}">${statusText}</span>
+                        </div>
+                        ${article.author_id === state.currentUser?.id && article.status !== 'published' ? 
+                          `<div class="action-buttons">
+                              <button onclick="event.stopPropagation(); editArticle(${article.id})">✏️ Editar</button>
+                              <button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>
+                           </div>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    articlesGrid.innerHTML = articlesHTML;
+}
+
+// Load users - ACTUALIZADA PARA PRODUCCIÓN
+async function loadUsers() {
+    try {
+        if (state.currentUser && state.currentUser.role === 'admin') {
+            const data = await apiRequest('/users');
+            state.users = data.users || [];
+        }
+    } catch (error) {
+        if (error.message !== 'OFFLINE_MODE') {
+            console.error('Error cargando usuarios:', error);
+        }
+    }
+
+    const usersTable = document.getElementById('users-table-body');
+    let usersHTML = '';
+
+    const totalUsers = state.users.length;
+    const studentUsers = state.users.filter(u => u.role === 'student').length;
+    const teacherUsers = state.users.filter(u => u.role === 'teacher').length;
+    const activeUsers = state.users.filter(u => u.active).length;
+
+    document.getElementById('total-users').textContent = totalUsers;
+    document.getElementById('student-users').textContent = studentUsers;
+    document.getElementById('teacher-users').textContent = teacherUsers;
+    document.getElementById('active-users').textContent = activeUsers;
+
+    if (state.users.length === 0) {
+        usersHTML = '<tr><td colspan="6" class="no-content">No hay usuarios registrados</td></tr>';
+    } else {
+        state.users.forEach(user => {
+            usersHTML += `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.username}</td>
+                    <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
+                    <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
+                    <td>${formatDate(user.last_login || user.lastLogin)}</td>
+                    <td class="action-buttons">
+                        <button class="${user.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
+                        ${user.role !== 'admin' ? `<button onclick="resetUserPassword(${user.id})">🔑 Resetear Contraseña</button>` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    usersTable.innerHTML = usersHTML;
+}
+
+// Toggle user status - ACTUALIZADA PARA PRODUCCIÓN
+async function toggleUserStatus(userId) {
+    try {
+        const user = state.users.find(u => u.id === userId);
+        if (user) {
+            const data = await apiRequest(`/users/${userId}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    active: !user.active
+                })
+            });
+
+            if (data.success) {
+                user.active = !user.active;
+                saveDataToStorage();
+                loadUsers();
+                alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+            }
+        }
+    } catch (error) {
+        if (error.message === 'OFFLINE_MODE') {
+            // Fallback a localStorage
+            const user = state.users.find(u => u.id === userId);
+            if (user) {
+                user.active = !user.active;
+                saveDataToStorage();
+                loadUsers();
+                alert(`⚠️ Estado actualizado localmente: ${user.active ? 'activado' : 'desactivado'}`);
+            }
+        } else {
+            console.error('Error actualizando estado:', error);
+            alert('❌ Error actualizando estado del usuario');
+        }
+    }
+}
+
+// Save article - ACTUALIZADA PARA PRODUCCIÓN
+async function saveArticle(e) {
+    e.preventDefault();
+    
+    if (!state.currentUser) return;
+    
+    const articleId = document.getElementById('article-id').value;
+    const title = document.getElementById('article-title').value;
+    const category = document.getElementById('article-category').value;
+    const chapter = document.getElementById('article-chapter').value;
+    const content = document.getElementById('article-content').value;
+    const status = document.getElementById('article-status').value;
+    const imageFile = document.getElementById('article-image-upload').files[0];
+    
+    // Validate form
+    const errors = validateForm({ title, content });
+    if (errors.length > 0) {
+        alert('❌ Errores en el formulario:\n\n' + errors.join('\n'));
+        return;
+    }
+    
+    try {
+        const articleData = {
+            title,
+            category,
+            chapter,
+            content,
+            author_id: state.currentUser.id,
+            status
+        };
+        
+        if (articleId) {
+            articleData.id = articleId;
+        }
+        
+        const data = await apiRequest('/articles', {
+            method: 'POST',
+            body: JSON.stringify(articleData)
+        });
+        
+        if (data.success) {
+            // Actualizar estado local
+            if (articleId) {
+                const index = state.articles.findIndex(a => a.id === parseInt(articleId));
+                if (index !== -1) {
+                    state.articles[index] = { ...state.articles[index], ...data.article };
+                }
+            } else {
+                state.articles.push(data.article);
+            }
+            
+            saveDataToStorage();
+            showPage('articles-page');
+            loadArticles();
+            updateDashboard();
+            
+            if (status === 'pending') {
+                alert('✅ Artículo enviado para revisión exitosamente.');
+            } else {
+                alert('✅ Artículo guardado como borrador.');
+            }
+        }
+        
+    } catch (error) {
+        if (error.message === 'OFFLINE_MODE') {
+            // Guardar localmente
+            if (articleId) {
+                const index = state.articles.findIndex(a => a.id === parseInt(articleId));
+                if (index !== -1) {
+                    state.articles[index].title = title;
+                    state.articles[index].category = category;
+                    state.articles[index].chapter = chapter;
+                    state.articles[index].content = content;
+                    state.articles[index].status = status;
+                    state.articles[index].updatedAt = new Date().toISOString().split('T')[0];
+                }
+            } else {
+                const newArticle = {
+                    id: state.articles.length > 0 ? Math.max(...state.articles.map(a => a.id)) + 1 : 1,
+                    title,
+                    category,
+                    chapter,
+                    content,
+                    author: state.currentUser.name,
+                    author_id: state.currentUser.id,
+                    imageFile: imageFile || null,
+                    status,
+                    created_at: new Date().toISOString().split('T')[0],
+                    comments: []
+                };
+                state.articles.push(newArticle);
+            }
+            
+            saveDataToStorage();
+            showPage('articles-page');
+            loadArticles();
+            alert('⚠️ Artículo guardado localmente (modo offline). Se sincronizará con la conexión.');
+            
+        } else {
+            console.error('Error guardando artículo:', error);
+            alert('❌ Error guardando artículo: ' + (error.message || 'Error de conexión'));
+        }
+    }
+}
+
+// =======================
+// FUNCIONES DE UTILIDAD (MANTENIDAS)
+// =======================
+
+// Las funciones de utilidad se mantienen igual que antes...
+// getRoleName, getCategoryName, getCategoryIcon, getCategoryClass, 
+// getChapterName, formatDate, showPage, updateCharCount, etc.
+
+// Initialize the application when the page loads
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Funciones globales para el frontend
+window.getAppState = () => state;
+window.API_BASE_URL = API_BASE_URL;
+
+console.log('🔧 Frontend configurado para producción');
+
+// =======================
+// FUNCIONES PRINCIPALES MEJORADAS
+// =======================
+
+// Initialize application
+// Initialize application
+async function initApp() {
+    console.log('🚀 Inicializando Revista Digital CSF...');
+    
+    try {
+        // Probar conexión con la API
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+            const health = await response.json();
+            console.log('✅ API conectada:', health.message);
+        } else {
+            throw new Error('API no responde correctamente');
+        }
+        
+    } catch (error) {
+        console.log('📱 Modo offline - Usando datos locales');
+    }
+    
+    // Cargar datos desde localStorage
+    loadDataFromStorage();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Load public magazine by default
+    loadPublicMagazine();
+    showPage('public-magazine-page');
+    
+    // Update public header
+    updatePublicHeader();
+    
+    console.log('✅ Sistema de Revista Digital inicializado correctamente');
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Login form submission
+    const loginForm = document.getElementById('login-form');
+    console.log('🔍 Formulario de login encontrado:', loginForm);
+    //  Verificar si el formulario existe antes de agregar el event listener
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        console.log('✅ Event listener del login registrado correctamente');
+        // Puedes agregar más logs aquí si es necesario
+    } else {
+        console.error('❌ NO se encontró el formulario de login con id="login-form"');
+    }
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('new-article-btn').addEventListener('click', showNewArticleForm);
+    document.getElementById('cancel-article-btn').addEventListener('click', cancelArticleForm);
+    document.getElementById('article-form').addEventListener('submit', saveArticle);
+    document.getElementById('comment-form').addEventListener('submit', addComment);
+    document.getElementById('create-user-form').addEventListener('submit', createUser);
+    document.getElementById('change-password-form').addEventListener('submit', changePassword);
+    
+    // Character count for forms
+    document.getElementById('article-title').addEventListener('input', updateCharCount);
+    document.getElementById('article-content').addEventListener('input', updateCharCount);
+    document.getElementById('comment-content').addEventListener('input', updateCharCount);
+    
+    // Username availability check
+    document.getElementById('new-user-username').addEventListener('input', checkUsernameAvailability);
+    
+    // Password confirmation check
+    document.getElementById('confirm-password').addEventListener('input', checkPasswordMatch);
+    
+    // Search functionality
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && e.target.id === 'public-search') {
+            searchInMagazine();
         }
     });
+}
+
+function loadDataFromStorage() {
+    // SOLO cargar notificaciones y artículos locales
+    // LOS USUARIOS SIEMPRE se cargan desde la base de datos
+    const savedArticles = localStorage.getItem('revista_articles');
+    const savedNotifications = localStorage.getItem('revista_notifications');
+    
+    // Datos de respaldo MUY básicos
+    const backupArticles = [];
+    const backupNotifications = [
+        { 
+            id: 1, 
+            title: 'Bienvenido/a', 
+            content: 'Conectado al sistema', 
+            type: 'info', 
+            read: false, 
+            createdAt: new Date().toISOString().split('T')[0]
+        }
+    ];
+    
+    // NO cargar usuarios desde localStorage
+    state.users = []; // Vacío - se cargarán desde la BD cuando sea necesario
+    state.articles = savedArticles ? JSON.parse(savedArticles) : backupArticles;
+    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : backupNotifications;
 }
 
 // Save data to localStorage
@@ -550,44 +1108,108 @@ function closeSearchModal() {
     if (modal) modal.remove();
 }
 
-// Handle user login
-function handleLogin(e) {
+// Handle user login - CORREGIDA PARA USAR LA API
+async function handleLogin(e) {
     e.preventDefault();
     
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
     
-    const user = state.users.find(u => 
-        u.username === username && u.password === password && u.role === role && u.active
-    );
-    
-    if (user) {
-        state.currentUser = user;
+    // Mostrar loading
+    const loginBtn = document.querySelector('#login-form button[type="submit"]');
+    const originalText = loginBtn.textContent;
+    loginBtn.textContent = '🔐 Conectando...';
+    loginBtn.disabled = true;
+
+    try {
+        console.log('🔗 Intentando login con:', { username, role });
         
-        // Update last login
-        user.lastLogin = new Date().toISOString().split('T')[0];
-        saveDataToStorage();
-        
-        updateUIForUser();
-        showPage('dashboard-page');
-        updateDashboard();
-        updatePublicHeader();
-        
-        // Add login notification
-        state.notifications.unshift({
-            id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-            title: '👋 ¡Bienvenido/a!',
-            content: `Has iniciado sesión correctamente como ${getRoleName(user.role)}`,
-            type: 'info',
-            read: false,
-            createdAt: new Date().toISOString().split('T')[0]
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password, role })
         });
-        saveDataToStorage();
+
+        const data = await response.json();
         
-        alert(`✅ Bienvenido/a ${user.name}! Has ingresado como ${getRoleName(user.role)}`);
-    } else {
-        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.💡');
+        if (response.ok) {
+            console.log('✅ Login exitoso:', data.user);
+            state.currentUser = data.user;
+            
+            // Guardar en localStorage como backup
+            const savedUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+            const userExists = savedUsers.find(u => u.id === data.user.id);
+            if (!userExists) {
+                savedUsers.push({
+                    ...data.user,
+                    password: password // Guardar temporalmente para modo offline
+                });
+                localStorage.setItem('revista_users', JSON.stringify(savedUsers));
+            }
+            
+            // Actualizar UI
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            
+            // Cargar datos después del login
+            setTimeout(() => {
+                loadArticles();
+                if (data.user.role === 'admin') {
+                    loadUsers();
+                }
+            }, 500);
+            
+            alert(`✅ ¡Bienvenido/a ${data.user.name}!`);
+            
+        } else {
+            console.error('❌ Error en login:', data.error);
+            
+            // Intentar con datos locales como fallback
+            const localUser = state.users.find(u => 
+                u.username === username && u.password === password && u.role === role && u.active
+            );
+            
+            if (localUser) {
+                console.log('📱 Usando datos locales como fallback');
+                state.currentUser = localUser;
+                updateUIForUser();
+                showPage('dashboard-page');
+                updateDashboard();
+                updatePublicHeader();
+                alert(`⚠️ Modo offline - Bienvenido/a ${localUser.name}`);
+            } else {
+                alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
+            }
+        }
+        
+    } catch (error) {
+        console.error('🌐 Error de conexión:', error);
+        
+        // Fallback a datos locales
+        const localUser = state.users.find(u => 
+            u.username === username && u.password === password && u.role === role && u.active
+        );
+        
+        if (localUser) {
+            console.log('📱 Modo offline - Login con datos locales');
+            state.currentUser = localUser;
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            alert(`⚠️ Sin conexión - Bienvenido/a ${localUser.name}`);
+        } else {
+            alert('❌ Error de conexión y no hay datos locales. Verifica tu internet.');
+        }
+    } finally {
+        // Restaurar botón
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
     }
 }
 
@@ -1401,22 +2023,39 @@ function addComment(e) {
     
     alert('✅ Comentario publicado exitosamente.');
 }
-
+//----------------------------------------------------------------------------------------------------------//
 // Load users (for admins)
-function loadUsers() {
+// Función para cargar usuarios (actualizada)
+async function loadUsers() {
+    try {
+        // Intentar cargar desde la API primero
+        const response = await fetch(`${API_BASE_URL}/users`);
+        const data = await response.json();
+
+        if (response.ok) {
+            state.users = data.users;
+        } else {
+            throw new Error('Error cargando usuarios de la API');
+        }
+    } catch (error) {
+        console.error('Error cargando usuarios de la API, usando localStorage:', error);
+        // Fallback a localStorage
+        loadDataFromStorage();
+    }
+
     const usersTable = document.getElementById('users-table-body');
     let usersHTML = '';
-    
+
     const totalUsers = state.users.length;
     const studentUsers = state.users.filter(u => u.role === 'student').length;
     const teacherUsers = state.users.filter(u => u.role === 'teacher').length;
     const activeUsers = state.users.filter(u => u.active).length;
-    
+
     document.getElementById('total-users').textContent = totalUsers;
     document.getElementById('student-users').textContent = studentUsers;
     document.getElementById('teacher-users').textContent = teacherUsers;
     document.getElementById('active-users').textContent = activeUsers;
-    
+
     state.users.forEach(user => {
         usersHTML += `
             <tr>
@@ -1424,7 +2063,7 @@ function loadUsers() {
                 <td>${user.username}</td>
                 <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
                 <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
-                <td>${formatDate(user.lastLogin)}</td>
+                <td>${formatDate(user.last_login || user.lastLogin)}</td>
                 <td class="action-buttons">
                     <button class="${user.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
                     ${user.role !== 'admin' ? `<button onclick="resetUserPassword(${user.id})">🔑 Resetear Contraseña</button>` : ''}
@@ -1432,46 +2071,82 @@ function loadUsers() {
             </tr>
         `;
     });
-    
+
     usersTable.innerHTML = usersHTML;
 }
+//------------------------------------------------------------------------------------------//
+// Toggle user status (actualizada)
+async function toggleUserStatus(userId) {
+    try {
+        const user = state.users.find(u => u.id === userId);
+        if (user) {
+            // Llamar a la API para actualizar el estado
+            const response = await fetch(`${API_BASE_URL}/users/${userId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    active: !user.active
+                })
+            });
 
-// Toggle user status
-function toggleUserStatus(userId) {
-    const user = state.users.find(u => u.id === userId);
-    if (user) {
-        user.active = !user.active;
-        saveDataToStorage();
-        loadUsers();
-        alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+            if (response.ok) {
+                user.active = !user.active;
+                saveDataToStorage();
+                loadUsers();
+                alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+            } else {
+                throw new Error('Error actualizando estado en la API');
+            }
+        }
+    } catch (error) {
+        console.error('Error actualizando estado:', error);
+        // Fallback a localStorage
+        const user = state.users.find(u => u.id === userId);
+        if (user) {
+            user.active = !user.active;
+            saveDataToStorage();
+            loadUsers();
+            alert(`⚠️ Estado actualizado localmente: ${user.active ? 'activado' : 'desactivado'}`);
+        }
     }
 }
 
-// Reset user password
-function resetUserPassword(userId) {
+// Reset user password (actualizada)
+async function resetUserPassword(userId) {
     const user = state.users.find(u => u.id === userId);
     if (user) {
-        user.password = '123'; // Default password
-        saveDataToStorage();
-        alert(`✅ Contraseña de ${user.name} reseteada a "123".`);
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/${userId}/password`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    password: '123'
+                })
+            });
+
+            if (response.ok) {
+                user.password = '123';
+                saveDataToStorage();
+                alert(`✅ Contraseña de ${user.name} reseteada a "123".`);
+            } else {
+                throw new Error('Error reseteando contraseña en la API');
+            }
+        } catch (error) {
+            console.error('Error reseteando contraseña:', error);
+            // Fallback a localStorage
+            user.password = '123';
+            saveDataToStorage();
+            alert(`⚠️ Contraseña reseteada localmente a "123".`);
+        }
     }
 }
-
-// Show create user form
-function showCreateUserForm() {
-    document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-username').value = '';
-    document.getElementById('new-user-password').value = '';
-    document.getElementById('new-user-role').value = 'student';
-    document.getElementById('new-user-talento').value = '';
-    
-    document.getElementById('username-availability').textContent = '';
-    
-    showPage('create-user-page');
-}
-
-// Create new user
-function createUser(e) {
+//----------------------------------------------------------------------------------------------------------//
+// Función para crear usuario (actualizada para conectar con Neon)
+async function createUser(e) {
     e.preventDefault();
     
     const name = document.getElementById('new-user-name').value;
@@ -1479,8 +2154,8 @@ function createUser(e) {
     const password = document.getElementById('new-user-password').value;
     const role = document.getElementById('new-user-role').value;
     const talento = document.getElementById('new-user-talento').value;
-    
-    // Validate form
+
+    // Validar formulario
     if (name.length < 2) {
         alert('El nombre debe tener al menos 2 caracteres.');
         return;
@@ -1495,36 +2170,71 @@ function createUser(e) {
         alert('La contraseña debe tener al menos 3 caracteres.');
         return;
     }
-    
-    // Check if username already exists
-    if (state.users.find(u => u.username === username)) {
-        alert('❌ El nombre de usuario ya existe. Por favor elija otro.');
-        return;
-    }
-    
-    const newUser = {
-        id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
-        username,
-        password,
-        name,
-        role,
-        active: true,
-        lastLogin: new Date().toISOString().split('T')[0]
-    };
-    
-    // Add talento for students
-    if (role === 'student' && talento) {
-        newUser.talento = talento;
-    }
-    
-    state.users.push(newUser);
-    saveDataToStorage();
-    
-    showPage('users-page');
-    loadUsers();
-    alert('✅ Usuario creado exitosamente.');
-}
 
+    try {
+        // Llamar a la API para crear el usuario en Neon
+        const response = await fetch(`${API_BASE_URL}/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username,
+                password,
+                name,
+                role,
+                talento: role === 'student' ? talento : null
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Actualizar el estado local también
+            const newUser = {
+                id: data.user.id,
+                username,
+                password,
+                name,
+                role,
+                active: true,
+                talento: role === 'student' ? talento : null,
+                lastLogin: new Date().toISOString().split('T')[0]
+            };
+            
+            state.users.push(newUser);
+            saveDataToStorage();
+            
+            showPage('users-page');
+            loadUsers();
+            alert('✅ Usuario creado exitosamente en la base de datos.');
+        } else {
+            alert('❌ Error creando usuario: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        console.error('Error creando usuario:', error);
+        
+        // Fallback: guardar en localStorage si falla la conexión
+        const newUser = {
+            id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
+            username,
+            password,
+            name,
+            role,
+            active: true,
+            talento: role === 'student' ? talento : null,
+            lastLogin: new Date().toISOString().split('T')[0]
+        };
+        
+        state.users.push(newUser);
+        saveDataToStorage();
+        
+        showPage('users-page');
+        loadUsers();
+        alert('⚠️ Usuario creado localmente (modo offline). Se sincronizará cuando haya conexión.');
+    }
+}
+//--------------------------------------------------------------------------------------------//
 // Show change password form
 function showChangePasswordForm() {
     if (!state.currentUser) return;
@@ -2170,3 +2880,21 @@ window.resetApp = () => {
     localStorage.clear();
     location.reload();
 };
+
+
+//-----------------------------------------------------------//
+// En script.js - Configuración automática para producción
+const API_BASE_URL = (function() {
+    // Si estamos en el dominio de Render, usar esa URL
+    if (window.location.hostname.includes('onrender.com')) {
+        return 'https://revista-san-francisco-ied.onrender.com/api';
+    }
+    // Si estamos en localhost, usar puerto 10000
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:10000/api';
+    }
+    // Para cualquier otro caso, usar la misma URL actual
+    return window.location.origin + '/api';
+})();
+
+console.log('🌐 API Base URL detectada:', API_BASE_URL);
