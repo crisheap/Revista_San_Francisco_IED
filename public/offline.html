@@ -252,6 +252,17 @@
 
         // Intentar reconectar automáticamente cada 10 segundos
         setInterval(checkConnection, 10000);
+
+        // Registrar Service Worker si está disponible
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then((registration) => {
+                    console.log('✅ Service Worker registrado en modo offline');
+                })
+                .catch((error) => {
+                    console.log('❌ Error registrando Service Worker:', error);
+                });
+        }
     </script>
 </body>
 </html>

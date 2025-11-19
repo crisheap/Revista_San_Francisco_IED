@@ -1,4 +1,4 @@
-/* CSS Styles for Colegio San Francisco IED - Revista Digital - PRODUCCIÓN */
+/* CSS Styles for Colegio San Francisco IED - Revista Digital */
 :root {
   /* Colores Institucionales Colegio San Francisco IED */
   --institucional-azul: #1e3a8a;
@@ -159,31 +159,6 @@ nav a:hover {
 
 .user-avatar:hover {
   transform: scale(1.1);
-}
-
-/* Connection Status */
-.connection-status-offline {
-  background: var(--danger);
-  color: white;
-  text-align: center;
-  padding: 10px;
-  font-weight: 600;
-  position: sticky;
-  top: 80px;
-  z-index: 999;
-  box-shadow: var(--shadow-md);
-}
-
-.connection-status-online {
-  background: var(--success);
-  color: white;
-  text-align: center;
-  padding: 10px;
-  font-weight: 600;
-  position: sticky;
-  top: 80px;
-  z-index: 999;
-  box-shadow: var(--shadow-md);
 }
 
 /* Button Styles */
