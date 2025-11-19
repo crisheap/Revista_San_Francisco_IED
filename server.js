@@ -10,28 +10,43 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Configuración de CORS para producción
+const cors = require('cors');
+
+// Configuración de CORS más permisiva para producción
 const corsOptions = {
     origin: function (origin, callback) {
+        // Permitir todos los orígenes en desarrollo
+        if (process.env.NODE_ENV === 'development') {
+            return callback(null, true);
+        }
+        
+        // En producción, permitir estos dominios
         const allowedOrigins = [
+            'https://revista-san-francisco-ied.onrender.com',
+            'https://tu-frontend.netlify.app', // si tienes frontend separado
             'http://localhost:3000',
             'http://localhost:5500',
-            'https://revista-digital-csf.onrender.com',
-            'https://revista-digital-csf-frontend.onrender.com'
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5500'
         ];
         
-        // Permitir requests sin origin (como mobile apps o Postman)
-        if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        // Si no hay origen (peticiones del mismo dominio) o está en la lista, permitir
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            console.log('Bloqueado por CORS:', origin);
+            console.log('🚫 Origen bloqueado por CORS:', origin);
             callback(new Error('No permitido por CORS'));
         }
     },
     credentials: true,
-    optionsSuccessStatus: 200
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
+
+app.use(cors(corsOptions));
+
+// Manejar preflight OPTIONS requests
+app.options('*', cors(corsOptions));
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));

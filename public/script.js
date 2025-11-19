@@ -8,7 +8,18 @@ const state = {
 };
 
 // Configuración automática de API URL para producción
-const API_BASE_URL = window.location.origin + '/api';
+function getApiBaseUrl() {
+    const currentUrl = window.location.origin;
+    
+    // Si estamos en el mismo dominio de Render, usar rutas relativas
+    if (currentUrl.includes('onrender.com')) {
+        return currentUrl + '/api';
+    }
+    
+    // Desarrollo local
+    return 'http://localhost:3000/api';
+}
+const API_BASE_URL = getApiBaseUrl();
 console.log('🔗 Conectando a API:', API_BASE_URL);
 
 // Función mejorada para llamadas a la API
