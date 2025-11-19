@@ -7,7 +7,7 @@ const { query } = require('./database');
 const { initializeDatabase } = require('./init-db');
 
 const app = express();
-const PORT = process.env.PORT || 0; // Puerto dinámico para Render
+const PORT = process.env.PORT || 10000; // Puerto dinámico para Render
 
 // Configuración de CORS más permisiva para producción
 const corsOptions = {
