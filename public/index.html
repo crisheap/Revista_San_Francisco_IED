@@ -17,6 +17,7 @@
 <meta name="msapplication-TileImage" content="/icons/icon-144x144.png">
 <meta name="msapplication-config" content="/browserconfig.xml">
 
+<<<<<<< HEAD
 <!-- Apple Touch Icons -->
 <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
 <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
@@ -77,6 +78,31 @@
             } else {
                 statusElement.style.display = 'block';
                 statusElement.textContent = '🌐 Sin conexión - Modo offline activado';
+=======
+    <!-- Manifest sin referencias a iconos faltantes -->
+    <link rel="manifest" href="manifest.json">
+
+
+    <!-- Service Worker Registration Simplificado -->
+    <!-- CORREGIR EN EL <head> DEL HTML -->
+<script>
+    if ('serviceWorker' in navigator) {  // ✅ CORREGIDO: navigator
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js')  // ✅ CORREGIDO
+                .then(function(registration) {
+                    console.log('✅ ServiceWorker registrado: ', registration.scope);
+                })
+                .catch(function(error) {
+                    console.log('❌ Error ServiceWorker: ', error);
+                });
+        });
+    }
+        // Verificar conexión
+        function updateOnlineStatus() {
+            const statusElement = document.getElementById('connection-status');
+            if (statusElement) {
+                statusElement.style.display = navigator.onLine ? 'none' : 'block';
+>>>>>>> ddbc4150425c6b5666efb963cfd36bd9823a6d11
             }
         }
     }
