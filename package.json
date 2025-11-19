@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node kill-port.js 10000 && nodemon server.js",
+    "dev": "nodemon server.js",
     "build": "npm install",
     "test": "echo \"No tests specified\" && exit 0",
     "render-build": "npm install"
@@ -29,7 +29,6 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "kill-port": "^2.0.1",
     "nodemon": "^3.0.1"
   },
   "engines": {

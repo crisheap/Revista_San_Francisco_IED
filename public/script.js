@@ -11,15 +11,14 @@ const state = {
 function getApiBaseUrl() {
     const currentUrl = window.location.origin;
     
-    // Si estamos en el mismo dominio de Render, usar rutas relativas
     if (currentUrl.includes('onrender.com')) {
         return currentUrl + '/api';
     }
     
-    // Desarrollo local
-    return 'http://localhost:3000/api';
+    // Desarrollo local - USAR EL NUEVO PUERTO
+    return 'http://localhost:10000/api';  // Mismo puerto que server.js
 }
-/*const API_BASE_URL = getApiBaseUrl();*/
+const API_BASE_URL = getApiBaseUrl();
 console.log('🔗 Conectando a API:', API_BASE_URL);
 
 // Función mejorada para llamadas a la API
@@ -181,6 +180,19 @@ function loadDataFromStorage() {
         }
     ];
 
+    function showCreateUserForm() {
+    document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-username').value = '';
+    document.getElementById('new-user-password').value = '';
+    document.getElementById('new-user-role').value = 'student';
+    document.getElementById('new-user-talento').value = '';
+
+    showPage('create-user-page');
+}
+window.showCreateUserForm = showCreateUserForm;
+
+
+
     const backupArticles = [
         {
             id: 1,
@@ -227,14 +239,19 @@ function saveDataToStorage() {
     }
 }
 
-// FUNCIÓN DE LOGIN ACTUALIZADA - SOLO BASE DE DATOS
-/*async function handleLogin(e) {
+// FUNCIÓN DE LOGIN CORREGIDA - REEMPLAZAR LA VERSIÓN COMENTADA
+async function handleLogin(e) {
     e.preventDefault();
     
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
     
+    if (!username || !password || !role) {
+        alert('❌ Por favor completa todos los campos');
+        return;
+    }
+
     // Mostrar loading
     const loginBtn = document.querySelector('#login-form button[type="submit"]');
     const originalText = loginBtn.textContent;
@@ -258,14 +275,6 @@ function saveDataToStorage() {
             console.log('✅ Login exitoso:', data.user);
             state.currentUser = data.user;
             
-            // Guardar en localStorage como backup
-            const savedUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
-            const userExists = savedUsers.find(u => u.id === data.user.id);
-            if (!userExists) {
-                savedUsers.push(data.user);
-                localStorage.setItem('revista_users', JSON.stringify(savedUsers));
-            }
-            
             // Actualizar UI
             updateUIForUser();
             showPage('dashboard-page');
@@ -276,18 +285,52 @@ function saveDataToStorage() {
             
         } else {
             console.error('❌ Error en login:', data.error);
-            alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
+            
+            // Intentar con datos locales como fallback
+            const localUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+            const localUser = localUsers.find(u => 
+                u.username === username && u.password === password && u.role === role
+            );
+            
+            if (localUser) {
+                console.log('📱 Usando datos locales como fallback');
+                state.currentUser = localUser;
+                updateUIForUser();
+                showPage('dashboard-page');
+                updateDashboard();
+                updatePublicHeader();
+                alert(`⚠️ Modo offline - Bienvenido/a ${localUser.name}`);
+            } else {
+                alert(`❌ ${data.error || 'Credenciales incorrectas'}`);
+            }
         }
         
     } catch (error) {
         console.error('🌐 Error de conexión:', error);
-        alert('❌ Error de conexión con el servidor. Verifica tu internet.');
+        
+        // Fallback a datos locales
+        const localUsers = JSON.parse(localStorage.getItem('revista_users') || '[]');
+        const localUser = localUsers.find(u => 
+            u.username === username && u.password === password && u.role === role
+        );
+        
+        if (localUser) {
+            console.log('📱 Modo offline - Login con datos locales');
+            state.currentUser = localUser;
+            updateUIForUser();
+            showPage('dashboard-page');
+            updateDashboard();
+            updatePublicHeader();
+            alert(`⚠️ Sin conexión - Bienvenido/a ${localUser.name}`);
+        } else {
+            alert('❌ Error de conexión y no hay datos locales. Verifica tu internet.');
+        }
     } finally {
         // Restaurar botón
         loginBtn.textContent = originalText;
         loginBtn.disabled = false;
     }
-}*/
+}
 
 // Create user - ACTUALIZADA PARA PRODUCCIÓN
 async function createUser(e) {
@@ -375,6 +418,25 @@ async function createUser(e) {
         }
     }
 }
+// AGREGAR ESTA FUNCIÓN EN script.js
+function showCreateUserForm() {
+    // Solo administradores pueden crear usuarios
+    if (!state.currentUser || state.currentUser.role !== 'admin') {
+        alert('❌ Solo los administradores pueden crear usuarios.');
+        return;
+    }
+    
+    // Limpiar formulario
+    document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-username').value = '';
+    document.getElementById('new-user-password').value = '';
+    document.getElementById('new-user-role').value = 'student';
+    document.getElementById('new-user-talento').value = '';
+    
+    // Mostrar página
+    showPage('create-user-page');
+}
+
 
 // Load articles - ACTUALIZADA PARA PRODUCCIÓN
 async function loadArticles() {
@@ -475,6 +537,9 @@ function renderFilteredArticles(articles) {
                         ${article.author_id === state.currentUser?.id && article.status !== 'published' ? 
                           `<div class="action-buttons">
                               <button onclick="event.stopPropagation(); editArticle(${article.id})">✏️ Editar</button>
+                           </div>` : ''}
+                        ${state.currentUser?.role === 'admin' ? 
+                          `<div class="action-buttons">
                               <button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>
                            </div>` : ''}
                     </div>
@@ -1622,10 +1687,13 @@ function removeImage() {
 }
 
 // Save article (create or update)
-function saveArticle(e) {
+async function saveArticle(e) {
     e.preventDefault();
     
-    if (!state.currentUser) return;
+    if (!state.currentUser) {
+        alert('❌ Por favor inicie sesión para crear artículos.');
+        return;
+    }
     
     const articleId = document.getElementById('article-id').value;
     const title = document.getElementById('article-title').value;
@@ -1635,71 +1703,158 @@ function saveArticle(e) {
     const status = document.getElementById('article-status').value;
     const imageFile = document.getElementById('article-image-upload').files[0];
     
+    console.log('📝 [DEBUG] Creando artículo con imagen...', {
+        title, category, chapter, content, status,
+        author_id: state.currentUser.id,
+        hasImage: !!imageFile
+    });
+    
     // Validate form
     const errors = validateForm({ title, content });
     if (errors.length > 0) {
         alert('❌ Errores en el formulario:\n\n' + errors.join('\n'));
         return;
     }
-    
-    if (articleId) {
-        // Update existing article
-        const index = state.articles.findIndex(a => a.id === parseInt(articleId));
-        if (index !== -1) {
-            state.articles[index].title = title;
-            state.articles[index].category = category;
-            state.articles[index].chapter = chapter;
-            state.articles[index].content = content;
-            state.articles[index].status = status;
-            state.articles[index].updatedAt = new Date().toISOString().split('T')[0];
-            
-            // Update image if new one was selected
-            if (imageFile) {
-                state.articles[index].imageFile = imageFile;
-            }
+
+    try {
+        let image_base64 = null;
+        
+        // ✅ CONVERTIR IMAGEN A BASE64 SI EXISTE
+        if (imageFile) {
+            console.log('🖼️ [DEBUG] Procesando imagen...');
+            image_base64 = await convertImageToBase64(imageFile);
         }
-    } else {
-        // Create new article
-        const newArticle = {
-            id: state.articles.length > 0 ? Math.max(...state.articles.map(a => a.id)) + 1 : 1,
+
+        const articleData = {
             title,
             category,
             chapter,
             content,
-            author: state.currentUser.name,
-            authorId: state.currentUser.id,
-            imageFile: imageFile || null,
+            author_id: state.currentUser.id,
             status,
-            createdAt: new Date().toISOString().split('T')[0],
-            comments: []
+            image_base64: image_base64,  // ✅ ENVIAR IMAGEN COMO BASE64
+            image_url: null
         };
         
-        state.articles.push(newArticle);
+        console.log('📤 [DEBUG] Enviando a API con imagen:', {
+            ...articleData,
+            image_base64: image_base64 ? `[BASE64: ${image_base64.substring(0, 50)}...]` : null
+        });
         
-        // Add notification for teachers/admins if submitted for review
-        if (status === 'pending') {
-            state.notifications.unshift({
-                id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-                title: '📝 Nuevo artículo pendiente',
-                content: `"${title}" está esperando revisión`,
-                type: 'warning',
-                read: false,
-                createdAt: new Date().toISOString().split('T')[0],
-                link: 'pending-articles-page'
-            });
+        const response = await fetch(`${API_BASE_URL}/articles`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(articleData)
+        });
+
+        console.log('📨 [DEBUG] Respuesta HTTP:', response.status);
+        
+        const data = await response.json();
+        console.log('📊 [DEBUG] Respuesta del servidor:', data);
+
+        if (response.ok) {
+            console.log('✅ [DEBUG] Artículo con imagen guardado en BD:', data.article);
+            
+            // Actualizar estado local también
+            if (articleId) {
+                // Actualizar artículo existente
+                const index = state.articles.findIndex(a => a.id === parseInt(articleId));
+                if (index !== -1) {
+                    state.articles[index] = { 
+                        ...state.articles[index], 
+                        ...data.article,
+                        image_url: data.image_url // ✅ GUARDAR URL DE LA IMAGEN
+                    };
+                }
+            } else {
+                // Crear nuevo artículo local
+                const newArticle = {
+                    id: data.article.id,
+                    title,
+                    category,
+                    chapter,
+                    content,
+                    author: state.currentUser.name,
+                    authorId: state.currentUser.id,
+                    imageFile: imageFile || null,
+                    image_url: data.image_url,  // ✅ GUARDAR URL DE LA IMAGEN
+                    status,
+                    createdAt: new Date().toISOString().split('T')[0],
+                    comments: []
+                };
+                state.articles.push(newArticle);
+            }
+            
+            saveDataToStorage();
+            showPage('articles-page');
+            loadArticles();
+            updateDashboard();
+            
+            if (status === 'pending') {
+                alert('✅ Artículo con imagen enviado para revisión exitosamente.');
+            } else {
+                alert('✅ Artículo con imagen guardado como borrador.');
+            }
+            
+        } else {
+            console.error('❌ [DEBUG] Error del servidor:', data);
+            alert('❌ Error guardando artículo: ' + (data.error || 'Error desconocido'));
         }
+        
+    } catch (error) {
+        console.error('💥 [DEBUG] Error completo:', error);
+        
+        // FALLBACK: Guardar solo en localStorage si falla la conexión
+        console.log('📱 [DEBUG] Guardando localmente (modo offline)...');
+        
+        if (articleId) {
+            const index = state.articles.findIndex(a => a.id === parseInt(articleId));
+            if (index !== -1) {
+                state.articles[index].title = title;
+                state.articles[index].category = category;
+                state.articles[index].chapter = chapter;
+                state.articles[index].content = content;
+                state.articles[index].status = status;
+                state.articles[index].updatedAt = new Date().toISOString().split('T')[0];
+                
+                if (imageFile) {
+                    state.articles[index].imageFile = imageFile;
+                }
+            }
+        } else {
+            const newArticle = {
+                id: state.articles.length > 0 ? Math.max(...state.articles.map(a => a.id)) + 1 : 1,
+                title,
+                category,
+                chapter,
+                content,
+                author: state.currentUser.name,
+                authorId: state.currentUser.id,
+                imageFile: imageFile || null,
+                status,
+                createdAt: new Date().toISOString().split('T')[0],
+                comments: []
+            };
+            state.articles.push(newArticle);
+        }
+        
+        saveDataToStorage();
+        showPage('articles-page');
+        loadArticles();
+        alert('⚠️ Artículo guardado localmente (modo offline). Se sincronizará cuando haya conexión.');
     }
-    
-    saveDataToStorage();
-    showPage('articles-page');
-    loadArticles();
-    updateDashboard();
-    
-    if (status === 'pending') {
-        alert('✅ Artículo enviado para revisión exitosamente.');
-    } else {
-        alert('✅ Artículo guardado como borrador.');
-    }
+}
+
+// ✅ AGREGAR ESTA FUNCIÓN PARA CONVERTIR IMAGEN A BASE64
+function convertImageToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
 }
 
 // Validate form data
@@ -1773,6 +1928,8 @@ function loadPendingArticles() {
                         <div class="action-buttons">
                             <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
                             <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
+                            ${state.currentUser?.role === 'admin' ? 
+                              `<button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>` : ''}
                             <button onclick="showArticleDetail(${article.id})">👁️ Ver Detalle</button>
                         </div>
                     </div>
@@ -1852,22 +2009,29 @@ function showArticleDetail(articleId) {
     const statusText = getStatusText(article.status);
     
     let actionsHTML = '';
-    if ((state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') && article.status === 'pending') {
-        actionsHTML = `
-            <div class="action-buttons">
-                <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
-                <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
-            </div>
-        `;
-    } else if (state.currentUser.role === 'student' && article.authorId === state.currentUser.id && article.status !== 'published') {
-        actionsHTML = `
-            <div class="action-buttons">
-                <button onclick="editArticle(${article.id})">✏️ Editar</button>
-                <button class="btn-danger" onclick="deleteArticle(${article.id})">🗑️ Eliminar</button>
-            </div>
-        `;
-    }
-    
+
+if (state.currentUser.role === 'admin') {
+    actionsHTML += `
+        <div class="action-buttons">
+            <button class="btn-danger" onclick="deleteArticle(${article.id})">🗑️ Eliminar Artículo</button>
+        </div>
+    `;
+}
+
+if ((state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') && article.status === 'pending') {
+    actionsHTML = `
+        <div class="action-buttons">
+            <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
+            <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
+        </div>
+    `;
+} else if (state.currentUser.role === 'student' && article.author_id === state.currentUser.id && article.status !== 'published') {
+    actionsHTML = `
+        <div class="action-buttons">
+            <button onclick="editArticle(${article.id})">✏️ Editar</button>
+        </div>
+    `;
+}
     let rejectionHTML = '';
     if (article.rejectionReason) {
         rejectionHTML = `
@@ -1928,20 +2092,91 @@ function editArticle(articleId) {
 }
 
 // Delete article
-function deleteArticle(articleId) {
-    if (confirm('¿Está seguro de que desea eliminar este artículo? Esta acción no se puede deshacer.')) {
-        const index = state.articles.findIndex(a => a.id === articleId);
-        if (index !== -1) {
-            state.articles.splice(index, 1);
+// ✅ FUNCIÓN PARA ELIMINAR ARTÍCULO (SOLO ADMIN)
+async function deleteArticle(articleId) {
+    if (!state.currentUser) {
+        alert('❌ Debes iniciar sesión para realizar esta acción.');
+        return;
+    }
+
+    const article = state.articles.find(a => a.id === articleId);
+    if (!article) {
+        alert('❌ Artículo no encontrado.');
+        return;
+    }
+
+    // Verificar permisos: solo admin puede eliminar
+    if (state.currentUser.role !== 'admin') {
+        alert('❌ No autorizado. Solo los administradores pueden eliminar artículos.');
+        return;
+    }
+
+    // Confirmación de seguridad
+    const confirmDelete = confirm(`¿Está seguro de que desea ELIMINAR permanentemente el artículo:\n\n"${article.title}"?\n\n📝 Autor: ${article.author_name || article.author}\n📊 Estado: ${getStatusText(article.status)}\n\n⚠️ Esta acción no se puede deshacer y se eliminarán todos los comentarios asociados.`);
+    
+    if (!confirmDelete) {
+        return;
+    }
+
+    try {
+        console.log('🗑️ [FRONTEND] Eliminando artículo:', articleId);
+        
+        const response = await fetch(`${API_BASE_URL}/articles/${articleId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'user-role': state.currentUser.role,
+                'user-id': state.currentUser.id.toString()
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log('✅ [FRONTEND] Artículo eliminado de la BD:', data);
+            
+            // Eliminar del estado local
+            state.articles = state.articles.filter(a => a.id !== articleId);
             saveDataToStorage();
-            showPage('articles-page');
-            loadArticles();
-            updateDashboard();
+            
+            // Recargar la vista actual
+            reloadCurrentView();
+            
             alert('✅ Artículo eliminado exitosamente.');
+            
+        } else {
+            console.error('❌ [FRONTEND] Error del servidor:', data);
+            alert('❌ Error eliminando artículo: ' + (data.error || 'Error desconocido'));
+        }
+        
+    } catch (error) {
+        console.error('💥 [FRONTEND] Error de conexión:', error);
+        
+        // Fallback: eliminar solo localmente
+        const confirmOfflineDelete = confirm(
+            '❌ Error de conexión. ¿Desea eliminar el artículo localmente? Se sincronizará cuando haya conexión.'
+        );
+        
+        if (confirmOfflineDelete) {
+            state.articles = state.articles.filter(a => a.id !== articleId);
+            saveDataToStorage();
+            reloadCurrentView();
+            alert('⚠️ Artículo eliminado localmente. Se sincronizará cuando haya conexión.');
         }
     }
 }
-
+// ✅ FUNCIÓN AUXILIAR PARA RECARGAR VISTA ACTUAL
+function reloadCurrentView() {
+    if (state.currentPage === 'articles-page') {
+        loadArticles();
+    } else if (state.currentPage === 'pending-articles-page') {
+        loadPendingArticles();
+    } else if (state.currentPage === 'article-detail-page') {
+        showPage('articles-page');
+        loadArticles();
+    }
+    updateDashboard();
+}
 // Load comments for an article
 function loadComments(articleId) {
     const article = state.articles.find(a => a.id === articleId);
@@ -1968,60 +2203,120 @@ function loadComments(articleId) {
 }
 
 // Add comment to an article
-function addComment(e) {
+async function addComment(e) {
     e.preventDefault();
     
-    if (!state.currentUser) return;
+    if (!state.currentUser) {
+        alert('❌ Por favor inicie sesión para comentar.');
+        return;
+    }
     
     const articleId = parseInt(document.getElementById('comment-article-id').value);
     const content = document.getElementById('comment-content').value;
     
     const article = state.articles.find(a => a.id === articleId);
-    if (!article) return;
+    if (!article) {
+        alert('❌ Artículo no encontrado.');
+        return;
+    }
     
     if (content.length < 1) {
-        alert('El comentario no puede estar vacío.');
+        alert('❌ El comentario no puede estar vacío.');
         return;
     }
     
     if (content.length > 500) {
-        alert('El comentario no puede tener más de 500 caracteres.');
+        alert('❌ El comentario no puede tener más de 500 caracteres.');
         return;
     }
-    
-    const newComment = {
-        id: article.comments.length > 0 ? Math.max(...article.comments.map(c => c.id)) + 1 : 1,
-        author: state.currentUser.name,
-        content,
-        createdAt: new Date().toISOString().split('T')[0]
-    };
-    
-    article.comments.push(newComment);
-    document.getElementById('comment-content').value = '';
-    document.getElementById('comment-char-count').textContent = '0/500 caracteres';
-    
-    saveDataToStorage();
-    loadComments(articleId);
-    updateDashboard();
-    
-    // Update comments count badge
-    document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
-    
-    // Add notification for the article author if it's not the current user
-    if (article.authorId !== state.currentUser.id) {
-        state.notifications.unshift({
-            id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-            title: '💬 Nuevo comentario',
-            content: `Tu artículo "${article.title}" tiene un nuevo comentario`,
-            type: 'info',
-            read: false,
-            createdAt: new Date().toISOString().split('T')[0],
-            link: 'article-detail-page'
+
+    try {
+        console.log('💬 [FRONTEND] Enviando comentario a la API...');
+        
+        const response = await fetch(`${API_BASE_URL}/articles/${articleId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                author_id: state.currentUser.id,
+                content: content
+            })
         });
+
+        console.log('📨 [FRONTEND] Respuesta HTTP:', response.status);
+        
+        const data = await response.json();
+        console.log('📊 [FRONTEND] Respuesta del servidor:', data);
+
+        if (response.ok) {
+            console.log('✅ [FRONTEND] Comentario guardado en BD:', data.comment);
+            
+            // Actualizar también en localStorage como respaldo
+            const newComment = {
+                id: data.comment.id,
+                author: state.currentUser.name,
+                content: content,
+                createdAt: new Date().toISOString().split('T')[0]
+            };
+            
+            article.comments.push(newComment);
+            document.getElementById('comment-content').value = '';
+            document.getElementById('comment-char-count').textContent = '0/500 caracteres';
+            
+            saveDataToStorage();
+            loadComments(articleId);
+            updateDashboard();
+            
+            // Update comments count badge
+            document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
+            
+            // Add notification for the article author if it's not the current user
+            if (article.authorId !== state.currentUser.id) {
+                state.notifications.unshift({
+                    id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
+                    title: '💬 Nuevo comentario',
+                    content: `Tu artículo "${article.title}" tiene un nuevo comentario`,
+                    type: 'info',
+                    read: false,
+                    createdAt: new Date().toISOString().split('T')[0],
+                    link: 'article-detail-page'
+                });
+                saveDataToStorage();
+            }
+            
+            alert('✅ Comentario publicado exitosamente en la base de datos.');
+            
+        } else {
+            console.error('❌ [FRONTEND] Error del servidor:', data);
+            alert('❌ Error publicando comentario: ' + (data.error || 'Error desconocido'));
+        }
+        
+    } catch (error) {
+        console.error('💥 [FRONTEND] Error de conexión:', error);
+        
+        // FALLBACK: Guardar solo en localStorage si falla la conexión
+        console.log('📱 [FRONTEND] Guardando comentario localmente...');
+        
+        const newComment = {
+            id: article.comments.length > 0 ? Math.max(...article.comments.map(c => c.id)) + 1 : 1,
+            author: state.currentUser.name,
+            content: content,
+            createdAt: new Date().toISOString().split('T')[0]
+        };
+        
+        article.comments.push(newComment);
+        document.getElementById('comment-content').value = '';
+        document.getElementById('comment-char-count').textContent = '0/500 caracteres';
+        
         saveDataToStorage();
+        loadComments(articleId);
+        updateDashboard();
+        
+        document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
+        
+        alert('⚠️ Comentario guardado localmente (modo offline). Se sincronizará cuando haya conexión.');
     }
-    
-    alert('✅ Comentario publicado exitosamente.');
 }
 //----------------------------------------------------------------------------------------------------------//
 // Load users (for admins)
@@ -2155,6 +2450,8 @@ async function createUser(e) {
     const role = document.getElementById('new-user-role').value;
     const talento = document.getElementById('new-user-talento').value;
 
+    console.log('🔍 [DEBUG] Datos del formulario:', { name, username, role, talento });
+
     // Validar formulario
     if (name.length < 2) {
         alert('El nombre debe tener al menos 2 caracteres.');
@@ -2172,7 +2469,9 @@ async function createUser(e) {
     }
 
     try {
-        // Llamar a la API para crear el usuario en Neon
+        console.log('🌐 [DEBUG] URL de API:', `${API_BASE_URL}/users`);
+        console.log('📤 [DEBUG] Enviando datos a la API...');
+
         const response = await fetch(`${API_BASE_URL}/users`, {
             method: 'POST',
             headers: {
@@ -2187,9 +2486,19 @@ async function createUser(e) {
             })
         });
 
+        console.log('📨 [DEBUG] Respuesta HTTP:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            url: response.url
+        });
+
         const data = await response.json();
+        console.log('📊 [DEBUG] Datos de respuesta:', data);
 
         if (response.ok) {
+            console.log('✅ [DEBUG] Usuario creado exitosamente:', data.user);
+            
             // Actualizar el estado local también
             const newUser = {
                 id: data.user.id,
@@ -2209,10 +2518,13 @@ async function createUser(e) {
             loadUsers();
             alert('✅ Usuario creado exitosamente en la base de datos.');
         } else {
+            console.error('❌ [DEBUG] Error del servidor:', data);
             alert('❌ Error creando usuario: ' + (data.error || 'Error desconocido'));
         }
     } catch (error) {
-        console.error('Error creando usuario:', error);
+        console.error('💥 [DEBUG] Error completo:', error);
+        console.error('📡 [DEBUG] Tipo de error:', error.name);
+        console.error('💬 [DEBUG] Mensaje de error:', error.message);
         
         // Fallback: guardar en localStorage si falla la conexión
         const newUser = {
@@ -2870,7 +3182,40 @@ function showAdvancedStats() {
     
     return stats;
 }
+// También asegúrate de que esta línea esté al final de script.js:
+window.showCreateUserForm = showCreateUserForm;
+// FUNCIONES GLOBALES QUE DEBEN ESTAR DEFINIDAS
+window.showCreateUserForm = showCreateUserForm;
+window.showPublicMagazine = showPublicMagazine;
+window.showPage = showPage;
+window.showGamesPage = showGamesPage;
+window.logout = logout;
+window.handleLogin = handleLogin;
 
+// Funciones para los juegos
+window.startSudokuGame = startSudokuGame;
+window.startCrosswordGame = startCrosswordGame;
+window.startMemoryGame = startMemoryGame;
+window.resetSudokuGame = resetSudokuGame;
+window.checkSudokuSolution = checkSudokuSolution;
+window.flipCard = flipCard;
+window.resetMemoryGame = resetMemoryGame;
+
+// Funciones de artículos
+window.showNewArticleForm = showNewArticleForm;
+window.editArticle = editArticle;
+window.deleteArticle = deleteArticle;
+window.showArticleDetail = showArticleDetail;
+window.filterArticles = filterArticles;
+
+// Funciones de usuarios (para admin)
+window.toggleUserStatus = toggleUserStatus;
+window.resetUserPassword = resetUserPassword;
+
+// Funciones del sistema
+window.exportData = exportData;
+window.showHelp = showHelp;
+window.searchInMagazine = searchInMagazine;
 // Initialize the application when the page loads
 document.addEventListener('DOMContentLoaded', initApp);
 
@@ -2883,18 +3228,3 @@ window.resetApp = () => {
 
 
 //-----------------------------------------------------------//
-// En script.js - Configuración automática para producción
-const API_BASE_URL = (function() {
-    // Si estamos en el dominio de Render, usar esa URL
-    if (window.location.hostname.includes('onrender.com')) {
-        return 'https://revista-san-francisco-ied.onrender.com/api';
-    }
-    // Si estamos en localhost, usar puerto 10000
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:10000/api';
-    }
-    // Para cualquier otro caso, usar la misma URL actual
-    return window.location.origin + '/api';
-})();
-
-console.log('🌐 API Base URL detectada:', API_BASE_URL);
