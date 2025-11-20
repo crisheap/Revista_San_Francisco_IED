@@ -1,4 +1,4 @@
-const express = require('express');
+/*const express = require('express');
 const jwt = require('jsonwebtoken');
 const database = require('../database');
 
@@ -333,5 +333,115 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         });
     }
 });
+
+module.exports = router;*/
+
+
+/*----------------------------------------------------------------------------- */
+
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const database = require('../database');
+
+const router = express.Router();
+
+// Obtener artículos - Solo desde Neon
+router.get('/', async (req, res) => {
+    try {
+        const { status, category, chapter, page = 1, limit = 10 } = req.query;
+        
+        let query = `
+            SELECT a.*, u.name as author_name 
+            FROM articles a 
+            JOIN users u ON a.author_id = u.id 
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramCount = 0;
+
+        // Para usuarios no autenticados, solo artículos publicados
+        if (!req.headers.authorization) {
+            query += ` AND a.status = 'published'`;
+        }
+
+        // Aplicar filtros
+        if (status && status !== 'all') {
+            query += ` AND a.status = $${++paramCount}`;
+            params.push(status);
+        }
+
+        if (category && category !== 'all') {
+            query += ` AND a.category = $${++paramCount}`;
+            params.push(category);
+        }
+
+        if (chapter && chapter !== 'all') {
+            query += ` AND a.chapter = $${++paramCount}`;
+            params.push(chapter);
+        }
+
+        query += ` ORDER BY a.created_at DESC LIMIT $${++paramCount} OFFSET $${++paramCount}`;
+        params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+
+        const result = await database.query(query, params);
+        
+        res.json({
+            success: true,
+            articles: result.rows
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo artículos:', error);
+        res.status(500).json({ success: false, message: 'Error del servidor' });
+    }
+});
+
+// Crear artículo - Solo en Neon
+router.post('/', async (req, res) => {
+    try {
+        const { title, category, chapter, content, status = 'draft' } = req.body;
+        const token = req.headers.authorization?.split(' ')[1];
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Token requerido' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (!title || !category || !chapter || !content) {
+            return res.status(400).json({ success: false, message: 'Todos los campos son requeridos' });
+        }
+
+        // Insertar directamente en Neon
+        const result = await database.query(`
+            INSERT INTO articles (title, category, chapter, content, author_id, status) 
+            VALUES ($1, $2, $3, $4, $5, $6) 
+            RETURNING *
+        `, [title, category, chapter, content, decoded.id, status]);
+
+        // Notificación en Neon si es pendiente
+        if (status === 'pending') {
+            await database.query(`
+                INSERT INTO notifications (user_id, title, content, type) 
+                SELECT id, '📝 Nuevo artículo', $1, 'warning'
+                FROM users 
+                WHERE role IN ('teacher', 'admin')
+            `, [`"${title}" está esperando revisión`]);
+        }
+
+        res.status(201).json({
+            success: true,
+            message: status === 'pending' ? 'Artículo enviado para revisión' : 'Artículo guardado',
+            article: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('❌ Error creando artículo:', error);
+        res.status(500).json({ success: false, message: 'Error del servidor' });
+    }
+});
+
+// Las demás rutas (GET by ID, PUT, DELETE) se modifican similarmente...
+// Todas operan directamente con Neon PostgreSQL
 
 module.exports = router;

@@ -1,4 +1,4 @@
-const { Pool } = require('pg');
+/*const { Pool } = require('pg');
 require('dotenv').config();
 
 class Database {
@@ -135,4 +135,83 @@ const database = new Database();
     await database.testConnection();
 })();
 
+module.exports = database;*/
+
+/*------------------------------------------------------------------- */
+
+const { Pool } = require('pg');
+require('dotenv').config();
+
+class Database {
+    constructor() {
+        // Configuración específica para Neon PostgreSQL
+        this.pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false
+            },
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000,
+        });
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        this.pool.on('connect', () => {
+            console.log('✅ Conectado a Neon PostgreSQL');
+        });
+
+        this.pool.on('error', (err) => {
+            console.error('❌ Error en pool de conexiones:', err.message);
+        });
+    }
+
+    async testConnection() {
+        let client;
+        try {
+            client = await this.pool.connect();
+            const result = await client.query('SELECT NOW() as time');
+            console.log('🕒 Hora de Neon:', result.rows[0].time);
+            return true;
+        } catch (error) {
+            console.error('❌ Error conectando a Neon:', error.message);
+            return false;
+        } finally {
+            if (client) client.release();
+        }
+    }
+
+    async query(text, params = []) {
+        let client;
+        try {
+            client = await this.pool.connect();
+            const result = await client.query(text, params);
+            return result;
+        } catch (error) {
+            console.error('❌ Error en query:', error.message);
+            throw error;
+        } finally {
+            if (client) client.release();
+        }
+    }
+
+    async transaction(callback) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await callback(client);
+            await client.query('COMMIT');
+            return result;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+}
+
+const database = new Database();
 module.exports = database;

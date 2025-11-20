@@ -249,9 +249,9 @@ function saveDataToStorage() {
         return articleCopy;
     });
     
-    localStorage.setItem('revista_users', JSON.stringify(state.users));
+    /*localStorage.setItem('revista_users', JSON.stringify(state.users));
     localStorage.setItem('revista_articles', JSON.stringify(articlesToSave));
-    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
+    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));*/
 }
 
 // Update public header navigation
@@ -2170,3 +2170,44 @@ window.resetApp = () => {
     localStorage.clear();
     location.reload();
 };
+
+
+/*------------------------------------------------------------------ */
+
+
+// ELIMINAR estas líneas:
+// localStorage.setItem('revista_users', ...);
+// localStorage.setItem('revista_articles', ...);
+// localStorage.getItem('revista_users');
+
+// REEMPLAZAR con llamadas a la API que van a Neon:
+async function loadArticlesFromNeon() {
+    try {
+        const response = await fetch('/api/articles');
+        const data = await response.json();
+        if (data.success) {
+            return data.articles;
+        }
+        return [];
+    } catch (error) {
+        console.error('Error cargando artículos:', error);
+        return [];
+    }
+}
+
+async function saveArticleToNeon(articleData, token) {
+    try {
+        const response = await fetch('/api/articles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(articleData)
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error guardando artículo:', error);
+        return { success: false, message: 'Error de conexión' };
+    }
+}
