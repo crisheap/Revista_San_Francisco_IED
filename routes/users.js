@@ -6,17 +6,17 @@ const database = require('../database');
 const router = express.Router();
 
 // Middleware para verificar admin
-const requireAdmin = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-        return res.status(401).json({
-            success: false,
-            message: 'Token de acceso requerido'
-        });
-    }
-
+const requireAdmin = async (req, res, next) => {
     try {
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token de acceso requerido'
+            });
+        }
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         if (decoded.role !== 'admin') {
@@ -39,11 +39,15 @@ const requireAdmin = (req, res, next) => {
 // Obtener todos los usuarios (solo admin)
 router.get('/', requireAdmin, async (req, res) => {
     try {
+        console.log('📋 Obteniendo lista de usuarios...');
+        
         const result = await database.query(`
             SELECT id, username, name, role, talento, active, last_login, created_at
             FROM revista_digital.users 
             ORDER BY created_at DESC
         `);
+
+        console.log(`✅ Encontrados ${result.rows.length} usuarios`);
 
         res.json({
             success: true,
@@ -63,6 +67,8 @@ router.get('/', requireAdmin, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
     try {
         const { username, password, name, role, talento } = req.body;
+
+        console.log('👤 Creando nuevo usuario:', { username, name, role });
 
         if (!username || !password || !name || !role) {
             return res.status(400).json({
@@ -91,12 +97,16 @@ router.post('/', requireAdmin, async (req, res) => {
             INSERT INTO revista_digital.users (username, password, name, role, talento)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, username, name, role, talento, active, created_at
-        `, [username, hashedPassword, name, role, talento]);
+        `, [username, hashedPassword, name, role, talento || null]);
+
+        const newUser = result.rows[0];
+        
+        console.log('✅ Usuario creado exitosamente:', newUser.username);
 
         res.status(201).json({
             success: true,
             message: 'Usuario creado exitosamente',
-            user: result.rows[0]
+            user: newUser
         });
 
     } catch (error) {
@@ -114,6 +124,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
         const { id } = req.params;
         const { name, role, talento, active } = req.body;
 
+        console.log('✏️ Actualizando usuario:', { id, name, role });
+
         const result = await database.query(`
             UPDATE revista_digital.users 
             SET name = $1, role = $2, talento = $3, active = $4, updated_at = CURRENT_TIMESTAMP
@@ -127,6 +139,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
                 message: 'Usuario no encontrado'
             });
         }
+
+        console.log('✅ Usuario actualizado:', result.rows[0].username);
 
         res.json({
             success: true,
@@ -156,6 +170,8 @@ router.post('/:id/reset-password', requireAdmin, async (req, res) => {
             });
         }
 
+        console.log('🔑 Reseteando contraseña para usuario:', id);
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         const result = await database.query(`
@@ -171,6 +187,8 @@ router.post('/:id/reset-password', requireAdmin, async (req, res) => {
                 message: 'Usuario no encontrado'
             });
         }
+
+        console.log('✅ Contraseña reseteada para:', result.rows[0].username);
 
         res.json({
             success: true,
@@ -189,6 +207,8 @@ router.post('/:id/reset-password', requireAdmin, async (req, res) => {
 // Obtener estadísticas de usuarios (solo admin)
 router.get('/stats', requireAdmin, async (req, res) => {
     try {
+        console.log('📊 Obteniendo estadísticas de usuarios...');
+        
         const totalUsers = await database.query('SELECT COUNT(*) FROM revista_digital.users');
         const activeUsers = await database.query('SELECT COUNT(*) FROM revista_digital.users WHERE active = true');
         const usersByRole = await database.query('SELECT role, COUNT(*) FROM revista_digital.users GROUP BY role');
@@ -199,14 +219,18 @@ router.get('/stats', requireAdmin, async (req, res) => {
             [today]
         );
 
+        const stats = {
+            total: parseInt(totalUsers.rows[0].count),
+            active: parseInt(activeUsers.rows[0].count),
+            byRole: usersByRole.rows,
+            recentLogins: parseInt(recentLogins.rows[0].count)
+        };
+
+        console.log('✅ Estadísticas obtenidas:', stats);
+
         res.json({
             success: true,
-            stats: {
-                total: parseInt(totalUsers.rows[0].count),
-                active: parseInt(activeUsers.rows[0].count),
-                byRole: usersByRole.rows,
-                recentLogins: parseInt(recentLogins.rows[0].count)
-            }
+            stats: stats
         });
 
     } catch (error) {

@@ -144,7 +144,6 @@ require('dotenv').config();
 
 class Database {
     constructor() {
-        // Configuración específica para Neon PostgreSQL
         this.pool = new Pool({
             connectionString: process.env.DATABASE_URL,
             ssl: {
@@ -160,11 +159,11 @@ class Database {
 
     setupEventListeners() {
         this.pool.on('connect', () => {
-            console.log('✅ Conectado a Neon PostgreSQL');
+            console.log('✅ Nueva conexión establecida con Neon PostgreSQL');
         });
 
         this.pool.on('error', (err) => {
-            console.error('❌ Error en pool de conexiones:', err.message);
+            console.error('❌ Error en el pool de conexiones:', err.message);
         });
     }
 
@@ -172,11 +171,14 @@ class Database {
         let client;
         try {
             client = await this.pool.connect();
-            const result = await client.query('SELECT NOW() as time');
-            console.log('🕒 Hora de Neon:', result.rows[0].time);
+            console.log('🔌 Conectado a Neon PostgreSQL');
+            
+            const versionResult = await client.query('SELECT version()');
+            console.log('🐘 PostgreSQL:', versionResult.rows[0].version.split(',')[0]);
+            
             return true;
         } catch (error) {
-            console.error('❌ Error conectando a Neon:', error.message);
+            console.error('❌ Error de conexión a la base de datos:', error.message);
             return false;
         } finally {
             if (client) client.release();

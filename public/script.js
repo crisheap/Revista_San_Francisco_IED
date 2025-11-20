@@ -1,3 +1,4 @@
+/*
 // Application State
 const state = {
     currentUser: null,
@@ -251,7 +252,7 @@ function saveDataToStorage() {
     
     /*localStorage.setItem('revista_users', JSON.stringify(state.users));
     localStorage.setItem('revista_articles', JSON.stringify(articlesToSave));
-    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));*/
+    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
 }
 
 // Update public header navigation
@@ -921,9 +922,823 @@ function getStatusText(status) {
 // Filter articles
 function filterArticles() {
     loadArticles();
+}*/
+
+/*-------------------------------------------------------------------------------- */
+// Application State
+const state = {
+    currentUser: null,
+    currentPage: 'public-magazine-page',
+    articles: [],
+    users: [],
+    notifications: [],
+    apiBaseUrl: window.location.origin + '/api'
+};
+
+// API Service - Maneja todas las llamadas al backend
+const apiService = {
+    // Headers comunes
+    getHeaders() {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (state.currentUser && state.currentUser.token) {
+            headers['Authorization'] = `Bearer ${state.currentUser.token}`;
+        }
+        
+        return headers;
+    },
+
+    // Manejo genérico de requests MEJORADO
+    async request(endpoint, options = {}) {
+        console.log(`🌐 API Call: ${options.method || 'GET'} ${endpoint}`);
+        
+        try {
+            const response = await fetch(`${state.apiBaseUrl}${endpoint}`, {
+                headers: this.getHeaders(),
+                ...options
+            });
+            
+            console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
+            
+            // Verificar si la respuesta está vacía
+            const text = await response.text();
+            console.log(`📦 Response Body:`, text.substring(0, 200) + (text.length > 200 ? '...' : ''));
+            
+            if (!text) {
+                throw new Error('Respuesta vacía del servidor');
+            }
+            
+            const data = JSON.parse(text);
+            
+            if (!response.ok) {
+                throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+            }
+            
+            return data;
+            
+        } catch (error) {
+            console.error('❌ Error en API request:', {
+                endpoint,
+                error: error.message,
+                stack: error.stack
+            });
+            
+            if (error.message.includes('Unexpected end of JSON input')) {
+                throw new Error('El servidor devolvió una respuesta inválida. Contacte al administrador.');
+            }
+            
+            throw error;
+        }
+    },
+
+
+    // Auth endpoints
+    async login(username, password, role) {
+        return this.request('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password, role })
+        });
+    },
+
+    async verifyToken() {
+        return this.request('/auth/verify');
+    },
+
+    async changePassword(currentPassword, newPassword) {
+        return this.request('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+    },
+
+    // Users endpoints
+    async getUsers() {
+        return this.request('/users');
+    },
+
+    async createUser(userData) {
+        return this.request('/users', {
+            method: 'POST',
+            body: JSON.stringify(userData)
+        });
+    },
+
+    async updateUser(id, userData) {
+        return this.request(`/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData)
+        });
+    },
+
+    async resetUserPassword(id, newPassword) {
+        return this.request(`/users/${id}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword })
+        });
+    },
+
+    // Articles endpoints
+    async getArticles(filters = {}) {
+        const params = new URLSearchParams(filters).toString();
+        return this.request(`/articles?${params}`);
+    },
+
+    async getArticle(id) {
+        return this.request(`/articles/${id}`);
+    },
+
+    async createArticle(articleData) {
+        return this.request('/articles', {
+            method: 'POST',
+            body: JSON.stringify(articleData)
+        });
+    },
+
+    async updateArticle(id, articleData) {
+        return this.request(`/articles/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(articleData)
+        });
+    },
+
+    async deleteArticle(id) {
+        return this.request(`/articles/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    // Comments endpoints
+    async getComments(articleId) {
+        return this.request(`/comments/article/${articleId}`);
+    },
+
+    async createComment(commentData) {
+        return this.request('/comments', {
+            method: 'POST',
+            body: JSON.stringify(commentData)
+        });
+    },
+
+    async deleteComment(id) {
+        return this.request(`/comments/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    // Notifications endpoints
+    async getNotifications() {
+        return this.request('/notifications');
+    },
+
+    async markNotificationAsRead(id) {
+        return this.request(`/notifications/${id}/read`, {
+            method: 'PATCH'
+        });
+    },
+
+    async markAllNotificationsAsRead() {
+        return this.request('/notifications/read-all', {
+            method: 'PATCH'
+        });
+    },
+
+    // Games endpoints
+    async getGameStats() {
+        return this.request('/games/stats');
+    },
+
+    async updateGameStats(gameType, stats) {
+        return this.request(`/games/${gameType}/stats`, {
+            method: 'POST',
+            body: JSON.stringify(stats)
+        });
+    }
+};
+
+// =======================
+// FUNCIONES PRINCIPALES ACTUALIZADAS
+// =======================
+
+// Initialize application
+async function initApp() {
+    console.log('🚀 Inicializando Revista Digital...');
+    
+    // Verificar si hay un token guardado
+    const savedToken = localStorage.getItem('revista_token');
+    const savedUser = localStorage.getItem('revista_user');
+    
+    if (savedToken && savedUser) {
+        try {
+            // Verificar si el token sigue siendo válido
+            const result = await apiService.verifyToken();
+            state.currentUser = {
+                ...JSON.parse(savedUser),
+                token: savedToken
+            };
+            
+            console.log('✅ Sesión restaurada:', state.currentUser.name);
+            updateUIForUser();
+            showPage('dashboard-page');
+            await updateDashboard();
+        } catch (error) {
+            console.log('❌ Sesión expirada, cerrando sesión...');
+            logout();
+        }
+    }
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Load public magazine by default
+    await loadPublicMagazine();
+    showPage('public-magazine-page');
+    
+    // Update public header
+    updatePublicHeader();
+    
+    console.log('✅ Sistema de Revista Digital inicializado correctamente');
 }
 
-// Show new article form
+// Setup event listeners
+function setupEventListeners() {
+    // Login form
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+    
+    // Article form
+    const articleForm = document.getElementById('article-form');
+    if (articleForm) {
+        articleForm.addEventListener('submit', saveArticle);
+    }
+    
+    // Comment form
+    const commentForm = document.getElementById('comment-form');
+    if (commentForm) {
+        commentForm.addEventListener('submit', addComment);
+    }
+    
+    // Create user form
+    const createUserForm = document.getElementById('create-user-form');
+    if (createUserForm) {
+        createUserForm.addEventListener('submit', createUser);
+    }
+    
+    // Change password form
+    const changePasswordForm = document.getElementById('change-password-form');
+    if (changePasswordForm) {
+        changePasswordForm.addEventListener('submit', changePassword);
+    }
+    
+    // Botones
+    const newArticleBtn = document.getElementById('new-article-btn');
+    if (newArticleBtn) {
+        newArticleBtn.addEventListener('click', showNewArticleForm);
+    }
+    
+    const cancelArticleBtn = document.getElementById('cancel-article-btn');
+    if (cancelArticleBtn) {
+        cancelArticleBtn.addEventListener('click', cancelArticleForm);
+    }
+}
+
+// Handle user login
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const role = document.getElementById('role').value;
+    
+    try {
+        const result = await apiService.login(username, password, role);
+        
+        if (result.success) {
+            state.currentUser = {
+                ...result.user,
+                token: result.token
+            };
+            
+            // Guardar en localStorage
+            localStorage.setItem('revista_token', result.token);
+            localStorage.setItem('revista_user', JSON.stringify(result.user));
+            
+            updateUIForUser();
+            showPage('dashboard-page');
+            await updateDashboard();
+            updatePublicHeader();
+            
+            alert(`✅ ¡Bienvenido/a ${result.user.name}! Has ingresado como ${getRoleName(result.user.role)}`);
+        }
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Logout
+function logout() {
+    state.currentUser = null;
+    localStorage.removeItem('revista_token');
+    localStorage.removeItem('revista_user');
+    showPublicMagazine();
+    document.getElementById('login-form').reset();
+    updatePublicHeader();
+    alert('👋 Sesión cerrada correctamente');
+}
+
+// Update dashboard with current data
+async function updateDashboard() {
+    if (!state.currentUser) return;
+    
+    try {
+        // Obtener estadísticas según el rol
+        if (state.currentUser.role === 'admin') {
+            const usersResult = await apiService.getUsers();
+            const articlesResult = await apiService.getArticles();
+            const notificationsResult = await apiService.getNotifications();
+            
+            document.getElementById('published-count').textContent = 
+                articlesResult.articles.filter(a => a.status === 'published').length;
+            document.getElementById('pending-count').textContent = 
+                articlesResult.articles.filter(a => a.status === 'pending').length;
+            document.getElementById('comments-count').textContent = '0'; // Se puede calcular
+            document.getElementById('users-count').textContent = usersResult.users.length;
+        } else {
+            const articlesResult = await apiService.getArticles();
+            const userArticles = articlesResult.articles.filter(a => a.author_id === state.currentUser.id);
+            
+            document.getElementById('published-count').textContent = 
+                userArticles.filter(a => a.status === 'published').length;
+            document.getElementById('pending-count').textContent = 
+                userArticles.filter(a => a.status === 'pending').length;
+            document.getElementById('comments-count').textContent = '0';
+            document.getElementById('users-count').textContent = '-';
+        }
+        
+        document.getElementById('welcome-user-name').textContent = state.currentUser.name;
+        
+        await loadNotifications();
+        
+    } catch (error) {
+        console.error('Error actualizando dashboard:', error);
+    }
+}
+
+// Load articles
+async function loadArticles() {
+    const articlesGrid = document.getElementById('articles-grid');
+    if (!articlesGrid) return;
+    
+    try {
+        const statusFilter = document.getElementById('article-filter')?.value || 'all';
+        const categoryFilter = document.getElementById('category-filter')?.value || 'all';
+        const chapterFilter = document.getElementById('chapter-filter')?.value || 'all';
+        
+        const filters = {};
+        if (statusFilter !== 'all') filters.status = statusFilter;
+        if (categoryFilter !== 'all') filters.category = categoryFilter;
+        if (chapterFilter !== 'all') filters.chapter = chapterFilter;
+        
+        const result = await apiService.getArticles(filters);
+        state.articles = result.articles;
+        
+        let articlesHTML = '';
+        
+        if (result.articles.length === 0) {
+            articlesHTML = '<div class="no-content"><p>No se encontraron artículos.</p></div>';
+        } else {
+            result.articles.forEach(article => {
+                const statusClass = `article-status status-${article.status}`;
+                const statusText = getStatusText(article.status);
+                
+                articlesHTML += `
+                    <div class="article-card" onclick="showArticleDetail(${article.id})">
+                        <div class="article-image">
+                            ${article.image_url ? 
+                                `<img src="${article.image_url}" alt="${article.title}">` : 
+                                getCategoryIcon(article.category)
+                            }
+                        </div>
+                        <div class="article-content">
+                            <h3 class="article-title">${article.title}</h3>
+                            <div class="article-meta">
+                                <span>Por: ${article.author_name}</span>
+                                <span>${formatDate(article.created_at)}</span>
+                            </div>
+                            <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
+                            <div class="article-meta">
+                                <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
+                                <span class="${statusClass}">${statusText}</span>
+                            </div>
+                            ${article.author_id === state.currentUser.id && article.status !== 'published' ? 
+                              `<div class="action-buttons">
+                                  <button onclick="event.stopPropagation(); editArticle(${article.id})">✏️ Editar</button>
+                                  <button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>
+                               </div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        articlesGrid.innerHTML = articlesHTML;
+        
+    } catch (error) {
+        console.error('Error cargando artículos:', error);
+        articlesGrid.innerHTML = '<div class="no-content"><p>Error cargando artículos.</p></div>';
+    }
+}
+
+// Create new article
+async function saveArticle(e) {
+    e.preventDefault();
+    
+    if (!state.currentUser) {
+        alert('Por favor inicie sesión para crear artículos.');
+        showPage('login-page');
+        return;
+    }
+    
+    const articleId = document.getElementById('article-id').value;
+    const title = document.getElementById('article-title').value;
+    const category = document.getElementById('article-category').value;
+    const chapter = document.getElementById('article-chapter').value;
+    const content = document.getElementById('article-content').value;
+    const status = document.getElementById('article-status').value;
+    
+    try {
+        if (articleId) {
+            // Actualizar artículo existente
+            await apiService.updateArticle(articleId, {
+                title, category, chapter, content, status
+            });
+            alert('✅ Artículo actualizado exitosamente.');
+        } else {
+            // Crear nuevo artículo
+            await apiService.createArticle({
+                title, category, chapter, content, status
+            });
+            alert(status === 'pending' ? '✅ Artículo enviado para revisión.' : '✅ Artículo guardado como borrador.');
+        }
+        
+        showPage('articles-page');
+        await loadArticles();
+        await updateDashboard();
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Delete article
+async function deleteArticle(articleId) {
+    if (!confirm('¿Está seguro de que desea eliminar este artículo? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        await apiService.deleteArticle(articleId);
+        alert('✅ Artículo eliminado exitosamente.');
+        await loadArticles();
+        await updateDashboard();
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Load users (for admins)
+async function loadUsers() {
+    const usersTable = document.getElementById('users-table-body');
+    if (!usersTable) return;
+    
+    try {
+        const result = await apiService.getUsers();
+        state.users = result.users;
+        
+        let usersHTML = '';
+        
+        result.users.forEach(user => {
+            usersHTML += `
+                <tr>
+                    <td>${user.name}</td>
+                    <td>${user.username}</td>
+                    <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
+                    <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
+                    <td>${formatDate(user.last_login)}</td>
+                    <td class="action-buttons">
+                        <button class="${user.active ? 'btn-danger' : 'btn-success'}" onclick="toggleUserStatus(${user.id}, ${user.active})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
+                        ${user.role !== 'admin' ? `<button onclick="resetUserPassword(${user.id})">🔑 Resetear Contraseña</button>` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        usersTable.innerHTML = usersHTML;
+        
+        // Actualizar estadísticas
+        document.getElementById('total-users').textContent = result.users.length;
+        document.getElementById('student-users').textContent = result.users.filter(u => u.role === 'student').length;
+        document.getElementById('teacher-users').textContent = result.users.filter(u => u.role === 'teacher').length;
+        document.getElementById('active-users').textContent = result.users.filter(u => u.active).length;
+        
+    } catch (error) {
+        console.error('Error cargando usuarios:', error);
+        usersTable.innerHTML = '<tr><td colspan="6">Error cargando usuarios</td></tr>';
+    }
+}
+
+// Create user (admin only)
+async function createUser(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('new-user-name').value;
+    const username = document.getElementById('new-user-username').value;
+    const password = document.getElementById('new-user-password').value;
+    const role = document.getElementById('new-user-role').value;
+    const talento = document.getElementById('new-user-talento').value;
+    
+    try {
+        await apiService.createUser({
+            name, username, password, role, talento: talento || null
+        });
+        
+        alert('✅ Usuario creado exitosamente.');
+        showPage('users-page');
+        await loadUsers();
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Toggle user status
+async function toggleUserStatus(userId, currentStatus) {
+    try {
+        await apiService.updateUser(userId, {
+            active: !currentStatus
+        });
+        
+        alert(`✅ Usuario ${!currentStatus ? 'activado' : 'desactivado'} exitosamente.`);
+        await loadUsers();
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Reset user password
+async function resetUserPassword(userId) {
+    const newPassword = prompt('Ingrese la nueva contraseña:');
+    if (!newPassword) return;
+    
+    if (newPassword.length < 3) {
+        alert('❌ La contraseña debe tener al menos 3 caracteres.');
+        return;
+    }
+    
+    try {
+        await apiService.resetUserPassword(userId, newPassword);
+        alert('✅ Contraseña reseteada exitosamente.');
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Change password
+async function changePassword(e) {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (newPassword !== confirmPassword) {
+        alert('❌ Las nuevas contraseñas no coinciden.');
+        return;
+    }
+    
+    try {
+        await apiService.changePassword(currentPassword, newPassword);
+        alert('✅ Contraseña cambiada exitosamente.');
+        showPage('dashboard-page');
+        document.getElementById('change-password-form').reset();
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Load notifications
+async function loadNotifications() {
+    const notificationsList = document.getElementById('notifications-list');
+    if (!notificationsList) return;
+    
+    try {
+        const result = await apiService.getNotifications();
+        let notificationsHTML = '';
+        
+        if (result.notifications.length === 0) {
+            notificationsHTML = '<div class="notification"><p>No hay notificaciones recientes.</p></div>';
+        } else {
+            result.notifications.slice(0, 5).forEach(notification => {
+                const notificationClass = notification.read ? 'notification' : 'notification unread';
+                const icon = notification.type === 'success' ? '✅' : 
+                            notification.type === 'warning' ? '⚠️' : 
+                            notification.type === 'danger' ? '❌' : 'ℹ️';
+                
+                notificationsHTML += `
+                    <div class="${notificationClass}" onclick="markNotificationAsRead(${notification.id})">
+                        <h4>${icon} ${notification.title}</h4>
+                        <p>${notification.content}</p>
+                        <small>${formatDate(notification.created_at)}</small>
+                    </div>
+                `;
+            });
+        }
+        
+        notificationsList.innerHTML = notificationsHTML;
+        
+    } catch (error) {
+        console.error('Error cargando notificaciones:', error);
+    }
+}
+
+// Mark notification as read
+async function markNotificationAsRead(notificationId) {
+    try {
+        await apiService.markNotificationAsRead(notificationId);
+        await loadNotifications();
+    } catch (error) {
+        console.error('Error marcando notificación como leída:', error);
+    }
+}
+
+// Show public magazine
+async function showPublicMagazine() {
+    await loadPublicMagazine();
+    showPage('public-magazine-page');
+    updatePublicHeader();
+}
+
+// Load public magazine content
+async function loadPublicMagazine() {
+    try {
+        const result = await apiService.getArticles();
+        const publishedArticles = result.articles.filter(a => a.status === 'published');
+        
+        // Separar por capítulos
+        const portafolios = publishedArticles.filter(a => a.chapter === 'portafolios');
+        const experiencias = publishedArticles.filter(a => a.chapter === 'experiencias');
+        const posicionamiento = publishedArticles.filter(a => a.chapter === 'posicionamiento');
+        
+        loadPublicPortafolios(portafolios);
+        loadPublicExperiencias(experiencias);
+        loadPublicPosicionamiento(posicionamiento);
+        
+    } catch (error) {
+        console.error('Error cargando revista pública:', error);
+    }
+}
+
+// Funciones auxiliares (mantener las existentes)
+function getRoleName(role) {
+    const roles = {
+        'student': 'Estudiante Reportero',
+        'teacher': 'Docente',
+        'admin': 'Administrador',
+        'parent': 'Padre de Familia'
+    };
+    return roles[role] || role;
+}
+
+function getCategoryName(category) {
+    const categories = {
+        'deportivo': '🏃 Deportivo',
+        'musical': '🎵 Musical',
+        'matematico': '🔢 Matemático',
+        'linguistico': '📝 Lingüístico',
+        'tecnologico': '💻 Tecnológico',
+        'artistico': '🎨 Artístico'
+    };
+    return categories[category] || category;
+}
+
+function getCategoryIcon(category) {
+    const icons = {
+        'deportivo': '🏃',
+        'musical': '🎵',
+        'matematico': '🔢',
+        'linguistico': '📝',
+        'tecnologico': '💻',
+        'artistico': '🎨'
+    };
+    return icons[category] || '📄';
+}
+
+function getChapterName(chapter) {
+    const chapters = {
+        'portafolios': 'Portafolios Estudiantiles',
+        'experiencias': 'Experiencias Pedagógicas',
+        'posicionamiento': 'Posicionamiento Crítico'
+    };
+    return chapters[chapter] || chapter;
+}
+
+function formatDate(dateString) {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString('es-ES', options);
+}
+
+function getStatusText(status) {
+    const statuses = {
+        'published': 'Publicado',
+        'pending': 'Pendiente',
+        'draft': 'Borrador',
+        'rejected': 'Rechazado'
+    };
+    return statuses[status] || status;
+}
+
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    
+    document.getElementById(pageId).classList.add('active');
+    state.currentPage = pageId;
+}
+
+function updatePublicHeader() {
+    const userInfo = document.getElementById('user-info');
+    const exportBtn = document.getElementById('export-btn');
+    
+    if (state.currentUser) {
+        userInfo.innerHTML = `
+            <div class="user-avatar">${state.currentUser.name.charAt(0)}</div>
+            <div>
+                <div>${state.currentUser.name}</div>
+                <div style="font-size: 0.8rem;">${getRoleName(state.currentUser.role)}</div>
+            </div>
+            <button onclick="logout()">Cerrar Sesión</button>
+        `;
+        
+        if (state.currentUser.role === 'admin') {
+            if (exportBtn) exportBtn.style.display = 'flex';
+        }
+        
+        updateUIForUser();
+    } else {
+        userInfo.innerHTML = `
+            <button onclick="showPublicMagazine()" class="btn-outline">👀 Ver Revista</button>
+            <button onclick="showPage('login-page')">🔐 Ingresar</button>
+        `;
+    }
+}
+
+function updateUIForUser() {
+    const navMenu = document.getElementById('nav-menu');
+    if (!navMenu) return;
+    
+    let navItems = '';
+    
+    if (state.currentUser) {
+        navItems = `
+            <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 ${state.currentUser.role === 'student' ? 'Mis Artículos' : 'Artículos'}</a></li>
+            <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+            <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+        `;
+        
+        if (state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') {
+            navItems = `
+                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
+                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+            `;
+        }
+        
+        if (state.currentUser.role === 'admin') {
+            navItems = `
+                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
+                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
+                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
+                <li><a href="#" onclick="showPage('users-page'); loadUsers()">👥 Usuarios</a></li>
+                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
+                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
+            `;
+        }
+    }
+    
+    navMenu.innerHTML = navItems;
+}
+
+// Initialize the application when the page loads
+document.addEventListener('DOMContentLoaded', initApp);
+// =======================
 function showNewArticleForm() {
     if (!state.currentUser) {
         alert('Por favor inicie sesión para crear artículos.');
@@ -2211,3 +3026,594 @@ async function saveArticleToNeon(articleData, token) {
         return { success: false, message: 'Error de conexión' };
     }
 }
+
+/*------------------------------------------------------- */
+
+// =======================
+// FUNCIONES GLOBALES PARA HTML
+// =======================
+
+// Hacer funciones disponibles globalmente para los eventos onclick
+window.showPage = showPage;
+window.showPublicMagazine = showPublicMagazine;
+window.showGamesPage = showGamesPage;
+window.showNewArticleForm = showNewArticleForm;
+window.showCreateUserForm = showCreateUserForm;
+window.showChangePasswordForm = showChangePasswordForm;
+window.logout = logout;
+window.handleLogin = handleLogin;
+window.saveArticle = saveArticle;
+window.addComment = addComment;
+window.createUser = createUser;
+window.changePassword = changePassword;
+window.editArticle = editArticle;
+window.deleteArticle = deleteArticle;
+window.toggleUserStatus = toggleUserStatus;
+window.resetUserPassword = resetUserPassword;
+window.markNotificationAsRead = markNotificationAsRead;
+window.filterArticles = filterArticles;
+window.searchInMagazine = searchInMagazine;
+window.startGame = startGame;
+window.showHelp = showHelp;
+
+// Funciones que necesitan ser definidas o actualizadas
+window.showGamesPage = function() {
+    showPage('games-page');
+    initGamesDashboard();
+};
+
+window.showNewArticleForm = function() {
+    if (!state.currentUser) {
+        alert('Por favor inicie sesión para crear artículos.');
+        showPage('login-page');
+        return;
+    }
+    
+    document.getElementById('article-form-title').textContent = 'Crear Nuevo Artículo';
+    document.getElementById('article-id').value = '';
+    document.getElementById('article-title').value = '';
+    document.getElementById('article-category').value = '';
+    document.getElementById('article-chapter').value = '';
+    document.getElementById('article-content').value = '';
+    document.getElementById('article-image-upload').value = '';
+    document.getElementById('article-status').value = 'draft';
+    
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+    
+    document.getElementById('title-char-count').textContent = '0/100 caracteres';
+    document.getElementById('content-char-count').textContent = '0/2000 caracteres';
+    
+    showPage('article-form-page');
+};
+
+window.showCreateUserForm = function() {
+    document.getElementById('new-user-name').value = '';
+    document.getElementById('new-user-username').value = '';
+    document.getElementById('new-user-password').value = '';
+    document.getElementById('new-user-role').value = 'student';
+    document.getElementById('new-user-talento').value = '';
+    document.getElementById('username-availability').textContent = '';
+    showPage('create-user-page');
+};
+
+window.showChangePasswordForm = function() {
+    if (!state.currentUser) return;
+    
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    document.getElementById('password-match').textContent = '';
+    showPage('change-password-page');
+};
+
+window.cancelArticleForm = function() {
+    showPage('articles-page');
+    loadArticles();
+};
+
+window.editArticle = async function(articleId) {
+    try {
+        const result = await apiService.getArticle(articleId);
+        const article = result.article;
+        
+        document.getElementById('article-form-title').textContent = 'Editar Artículo';
+        document.getElementById('article-id').value = article.id;
+        document.getElementById('article-title').value = article.title;
+        document.getElementById('article-category').value = article.category;
+        document.getElementById('article-chapter').value = article.chapter;
+        document.getElementById('article-content').value = article.content;
+        document.getElementById('article-status').value = article.status;
+        
+        document.getElementById('article-image-upload').value = '';
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('preview-img').src = '';
+        
+        document.getElementById('title-char-count').textContent = `${article.title.length}/100 caracteres`;
+        document.getElementById('content-char-count').textContent = `${article.content.length}/2000 caracteres`;
+        
+        showPage('article-form-page');
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+window.filterArticles = function() {
+    loadArticles();
+};
+
+window.searchInMagazine = function() {
+    const searchTerm = document.getElementById('public-search').value.toLowerCase().trim();
+    if (!searchTerm) {
+        alert('Por favor, ingresa un término de búsqueda.');
+        return;
+    }
+    
+    // Implementar búsqueda simple por ahora
+    const articlesGrid = document.getElementById('public-portafolios-grid');
+    if (articlesGrid) {
+        const articles = Array.from(articlesGrid.querySelectorAll('.article-card'));
+        let found = false;
+        
+        articles.forEach(article => {
+            const title = article.querySelector('.article-title').textContent.toLowerCase();
+            const excerpt = article.querySelector('.article-excerpt').textContent.toLowerCase();
+            
+            if (title.includes(searchTerm) || excerpt.includes(searchTerm)) {
+                article.style.display = 'block';
+                found = true;
+            } else {
+                article.style.display = 'none';
+            }
+        });
+        
+        if (!found) {
+            alert('No se encontraron artículos que coincidan con tu búsqueda.');
+        }
+    }
+};
+
+window.showHelp = function(section) {
+    const helpMessages = {
+        login: `🔐 Sistema de Login\n\nPara acceder al sistema necesitas:\n• Usuario y contraseña\n• Seleccionar tu rol correcto\n\n💡 También puedes continuar como espectador sin iniciar sesión.`,
+        dashboard: `📊 Panel de Control\n\nEl dashboard muestra:\n• Estadísticas generales del sistema\n• Notificaciones recientes\n• Acciones rápidas según tu rol`,
+        articles: `📚 Gestión de Artículos\n\nPara Estudiantes:\n• Crear nuevos artículos\n• Editar tus artículos existentes\n• Enviar artículos para revisión\n\nPara Docentes y Administradores:\n• Revisar todos los artículos\n• Aprobar o rechazar artículos pendientes`,
+        games: `🎮 Juegos Educativos\n\nJuegos disponibles:\n• 🧩 Sudoku Matemático\n• 📝 Crucigrama Lingüístico\n• 🎵 Memoria Musical`
+    };
+    
+    const message = helpMessages[section] || 'No hay ayuda disponible para esta sección.';
+    alert(message);
+};
+
+// Funciones para cargar contenido público
+window.loadPublicPortafolios = function(articles = []) {
+    const grid = document.getElementById('public-portafolios-grid');
+    if (!grid) return;
+    
+    let html = '';
+    articles.forEach(article => {
+        html += `
+            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
+                <div class="article-image">
+                    ${getCategoryIcon(article.category)}
+                </div>
+                <div class="article-content">
+                    <h3 class="article-title">${article.title}</h3>
+                    <div class="article-meta">
+                        <span>Por: ${article.author_name}</span>
+                        <span>${formatDate(article.created_at)}</span>
+                    </div>
+                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
+                    <div class="article-meta">
+                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html || '<p class="no-content">No hay portafolios publicados aún.</p>';
+};
+
+window.loadPublicExperiencias = function(articles = []) {
+    const grid = document.getElementById('public-experiencias-grid');
+    if (!grid) return;
+    
+    let html = '';
+    articles.forEach(article => {
+        html += `
+            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
+                <div class="article-image">
+                    ${getCategoryIcon(article.category)}
+                </div>
+                <div class="article-content">
+                    <h3 class="article-title">${article.title}</h3>
+                    <div class="article-meta">
+                        <span>Por: ${article.author_name}</span>
+                        <span>${formatDate(article.created_at)}</span>
+                    </div>
+                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
+                    <div class="article-meta">
+                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html || '<p class="no-content">No hay experiencias pedagógicas publicadas aún.</p>';
+};
+
+window.loadPublicPosicionamiento = function(articles = []) {
+    const grid = document.getElementById('public-posicionamiento-grid');
+    if (!grid) return;
+    
+    let html = '';
+    articles.forEach(article => {
+        html += `
+            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
+                <div class="article-image">
+                    ${getCategoryIcon(article.category)}
+                </div>
+                <div class="article-content">
+                    <h3 class="article-title">${article.title}</h3>
+                    <div class="article-meta">
+                        <span>Por: ${article.author_name}</span>
+                        <span>${formatDate(article.created_at)}</span>
+                    </div>
+                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
+                    <div class="article-meta">
+                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html || '<p class="no-content">No hay reflexiones críticas publicadas aún.</p>';
+};
+
+window.showPublicArticleDetail = async function(articleId) {
+    try {
+        const result = await apiService.getArticle(articleId);
+        const article = result.article;
+        
+        // Crear modal para mostrar el artículo
+        const modalHTML = `
+            <div class="modal-overlay" onclick="closePublicModal()">
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h2>${article.title}</h2>
+                        <button class="modal-close" onclick="closePublicModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="article-meta">
+                            <span><strong>Autor:</strong> ${article.author_name}</span>
+                            <span><strong>Fecha:</strong> ${formatDate(article.created_at)}</span>
+                            <span><strong>Categoría:</strong> ${getCategoryName(article.category)}</span>
+                            <span><strong>Capítulo:</strong> ${getChapterName(article.chapter)}</span>
+                        </div>
+                        <div class="article-content-full">
+                            ${article.content.replace(/\n/g, '<br>')}
+                        </div>
+                        <div class="comments-section">
+                            <h3>💬 Comentarios <span class="article-status">${article.comments.length}</span></h3>
+                            ${article.comments.length > 0 ? article.comments.map(comment => `
+                                <div class="notification">
+                                    <h4>${comment.author_name}</h4>
+                                    <p>${comment.content}</p>
+                                    <small>${formatDate(comment.created_at)}</small>
+                                </div>
+                            `).join('') : '<p class="no-content">No hay comentarios aún.</p>'}
+                        </div>
+                        <div class="article-actions-public">
+                            <p><em>💡 Para comentar y acceder a más funciones, <a href="#" onclick="showPage(\'login-page\'); closePublicModal()">inicia sesión</a></em></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.id = 'public-article-modal';
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer);
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+window.closePublicModal = function() {
+    const modal = document.getElementById('public-article-modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// Funciones de juegos
+window.startGame = function(gameId) {
+    if (!state.currentUser) {
+        alert('💡 Para guardar tu progreso en los juegos, inicia sesión primero.');
+        showPage('login-page');
+        return;
+    }
+    
+    switch(gameId) {
+        case 'sudoku':
+            startSudokuGame();
+            break;
+        case 'crucigrama':
+            startCrosswordGame();
+            break;
+        case 'memoria':
+            startMemoryGame();
+            break;
+        default:
+            alert('Juego en desarrollo. ¡Próximamente!');
+    }
+};
+
+// Funciones auxiliares globales
+window.getCategoryClass = function(category) {
+    const classes = {
+        'deportivo': 'talento-deportivo',
+        'musical': 'talento-musical',
+        'matematico': 'talento-matematico',
+        'linguistico': 'talento-linguistico',
+        'tecnologico': 'talento-tecnologico',
+        'artistico': 'talento-artistico'
+    };
+    return classes[category] || '';
+};
+
+// Inicializar la aplicación cuando se carga la página
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Funciones para manejar comentarios
+window.addComment = async function(e) {
+    e.preventDefault();
+    
+    if (!state.currentUser) {
+        alert('Por favor inicie sesión para comentar.');
+        showPage('login-page');
+        return;
+    }
+    
+    const content = document.getElementById('comment-content').value;
+    const articleId = document.getElementById('comment-article-id').value;
+    
+    if (!content.trim()) {
+        alert('El comentario no puede estar vacío.');
+        return;
+    }
+    
+    try {
+        await apiService.createComment({
+            articleId: parseInt(articleId),
+            content: content
+        });
+        
+        alert('✅ Comentario publicado exitosamente.');
+        document.getElementById('comment-content').value = '';
+        
+        // Recargar los comentarios
+        if (typeof loadComments === 'function') {
+            await loadComments(parseInt(articleId));
+        }
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+// Funciones para artículos pendientes (docentes y admins)
+window.loadPendingArticles = async function() {
+    const pendingGrid = document.getElementById('pending-articles-grid');
+    if (!pendingGrid) return;
+    
+    try {
+        const result = await apiService.getArticles({ status: 'pending' });
+        const pendingArticles = result.articles;
+        
+        let articlesHTML = '';
+        
+        if (pendingArticles.length === 0) {
+            articlesHTML = '<div class="no-content"><p>No hay artículos pendientes de revisión.</p></div>';
+        } else {
+            pendingArticles.forEach(article => {
+                articlesHTML += `
+                    <div class="article-card">
+                        <div class="article-image">
+                            ${getCategoryIcon(article.category)}
+                        </div>
+                        <div class="article-content">
+                            <h3 class="article-title">${article.title}</h3>
+                            <div class="article-meta">
+                                <span>Por: ${article.author_name}</span>
+                                <span>${formatDate(article.created_at)}</span>
+                            </div>
+                            <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
+                            <div class="article-meta">
+                                <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
+                                <span class="article-status status-pending">Pendiente</span>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
+                                <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
+                                <button onclick="showArticleDetail(${article.id})">👁️ Ver Detalle</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        pendingGrid.innerHTML = articlesHTML;
+        
+    } catch (error) {
+        console.error('Error cargando artículos pendientes:', error);
+        pendingGrid.innerHTML = '<div class="no-content"><p>Error cargando artículos pendientes.</p></div>';
+    }
+};
+
+window.approveArticle = async function(articleId) {
+    try {
+        await apiService.updateArticle(articleId, { status: 'published' });
+        alert('✅ Artículo aprobado y publicado exitosamente.');
+        await loadPendingArticles();
+        await updateDashboard();
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+window.rejectArticle = async function(articleId) {
+    const reason = prompt('Por favor, ingrese el motivo del rechazo:');
+    if (reason === null) return;
+    
+    if (!reason.trim()) {
+        alert('Debe ingresar un motivo para rechazar el artículo.');
+        return;
+    }
+    
+    try {
+        await apiService.updateArticle(articleId, { 
+            status: 'rejected',
+            rejection_reason: reason 
+        });
+        alert('✅ Artículo rechazado. El autor ha sido notificado.');
+        await loadPendingArticles();
+        await updateDashboard();
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+window.showArticleDetail = async function(articleId) {
+    try {
+        const result = await apiService.getArticle(articleId);
+        const article = result.article;
+        
+        const articleDetail = document.getElementById('article-detail-content');
+        const statusClass = `article-status status-${article.status}`;
+        const statusText = getStatusText(article.status);
+        
+        let actionsHTML = '';
+        if ((state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') && article.status === 'pending') {
+            actionsHTML = `
+                <div class="action-buttons">
+                    <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
+                    <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
+                </div>
+            `;
+        } else if (state.currentUser.role === 'student' && article.author_id === state.currentUser.id && article.status !== 'published') {
+            actionsHTML = `
+                <div class="action-buttons">
+                    <button onclick="editArticle(${article.id})">✏️ Editar</button>
+                    <button class="btn-danger" onclick="deleteArticle(${article.id})">🗑️ Eliminar</button>
+                </div>
+            `;
+        }
+        
+        let rejectionHTML = '';
+        if (article.rejection_reason) {
+            rejectionHTML = `
+                <div class="notification" style="background: #fef2f2; border-left-color: #ef4444;">
+                    <h4>📝 Observaciones del revisor:</h4>
+                    <p>${article.rejection_reason}</p>
+                </div>
+            `;
+        }
+        
+        articleDetail.innerHTML = `
+            <div class="form-container">
+                <h2>${article.title}</h2>
+                <div class="article-meta">
+                    <span>Por: ${article.author_name}</span>
+                    <span>${formatDate(article.created_at)}</span>
+                    <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
+                    <span class="${statusClass}">${statusText}</span>
+                </div>
+                ${rejectionHTML}
+                <div style="margin: 1rem 0; line-height: 1.8; white-space: pre-line;">${article.content}</div>
+                ${actionsHTML}
+            </div>
+        `;
+        
+        document.getElementById('comment-article-id').value = articleId;
+        document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
+        
+        // Cargar comentarios
+        const commentsList = document.getElementById('comments-list');
+        let commentsHTML = '';
+        
+        if (article.comments.length === 0) {
+            commentsHTML = '<div class="no-content"><p>No hay comentarios aún. ¡Sé el primero en comentar!</p></div>';
+        } else {
+            article.comments.forEach(comment => {
+                commentsHTML += `
+                    <div class="notification">
+                        <h4>${comment.author_name}</h4>
+                        <p>${comment.content}</p>
+                        <small>${formatDate(comment.created_at)}</small>
+                    </div>
+                `;
+            });
+        }
+        
+        commentsList.innerHTML = commentsHTML;
+        
+        showPage('article-detail-page');
+        
+    } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+    }
+};
+
+window.initGamesDashboard = function() {
+    const gamesGrid = document.getElementById('games-grid');
+    if (!gamesGrid) return;
+    
+    const games = [
+        {
+            id: 'sudoku',
+            name: '🧩 Sudoku Matemático',
+            description: 'Desafía tu lógica matemática con este juego de números. Completa el tablero sin repetir números en filas, columnas o cuadrantes.',
+            difficulty: 'Intermedio',
+            category: 'matematico'
+        },
+        {
+            id: 'crucigrama',
+            name: '📝 Crucigrama Lingüístico',
+            description: 'Amplía tu vocabulario con este crucigrama educativo. Resuelve las pistas relacionadas con temas literarios y educativos.',
+            difficulty: 'Fácil',
+            category: 'linguistico'
+        },
+        {
+            id: 'memoria',
+            name: '🎵 Juego de Memoria Musical',
+            description: 'Entrena tu memoria con notas y ritmos musicales. Encuentra las parejas de instrumentos musicales.',
+            difficulty: 'Fácil',
+            category: 'musical'
+        }
+    ];
+    
+    let gamesHTML = '';
+    games.forEach(game => {
+        gamesHTML += `
+            <div class="game-card" onclick="startGame('${game.id}')">
+                <div class="game-icon">${game.name.split(' ')[0]}</div>
+                <h3>${game.name}</h3>
+                <p>${game.description}</p>
+                <div class="game-meta">
+                    <span class="difficulty-badge ${game.difficulty.toLowerCase()}">${game.difficulty}</span>
+                    <span class="game-category">${getCategoryName(game.category)}</span>
+                </div>
+                <button class="btn-play">🎮 Jugar Ahora</button>
+            </div>
+        `;
+    });
+    
+    gamesGrid.innerHTML = gamesHTML;
+};
