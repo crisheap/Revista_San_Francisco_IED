@@ -1,886 +1,164 @@
-// Application State
-const state = {
-    currentUser: null,
-    currentPage: 'public-magazine-page',
-    articles: [],
-    users: [],
-    notifications: []
-};
-
-// Datos de la estructura de los roles de los usuarios
-const sampleUsers = [
-    { 
-        id: 1, 
-        username: 'estudiante1', 
-        password: '123', 
-        name: 'Juan Pérez', 
-        role: 'student', 
-        active: true,
-        talento: 'artistico',
-        lastLogin: '2025-03-20'
-    },
-    { 
-        id: 2, 
-        username: 'docente1', 
-        password: '123', 
-        name: 'María González', 
-        role: 'teacher', 
-        active: true,
-        lastLogin: '2025-03-21'
-    },
-    { 
-        id: 3, 
-        username: 'admin', 
-        password: 'admin', 
-        name: 'Administrador Sistema', 
-        role: 'admin', 
-        active: true,
-        lastLogin: '2025-03-22'
-    },
-    { 
-        id: 4, 
-        username: 'padre1', 
-        password: '123', 
-        name: 'Carlos Rodríguez', 
-        role: 'parent', 
-        active: true,
-        lastLogin: '2025-03-19'
-    },
-    { 
-        id: 5, 
-        username: 'estudiante2', 
-        password: '123', 
-        name: 'Ana López', 
-        role: 'student', 
-        active: true,
-        talento: 'musical',
-        lastLogin: '2025-03-18'
+// Show new article form
+function showNewArticleForm() {
+    if (!state.currentUser) {
+        alert('Por favor inicie sesión para crear artículos.');
+        showPage('login-page');
+        return;
     }
-];
-
-const sampleArticles = [
-    {
-        id: 1,
-        title: 'Nuestro equipo de fútbol gana el torneo regional',
-        category: 'deportivo',
-        chapter: 'portafolios',
-        content: 'El equipo de fútbol del Colegio San Francisco IED ha logrado una victoria histórica en el torneo regional, demostrando disciplina, trabajo en equipo y talento deportivo. Los estudiantes entrenaron durante meses bajo la guía del profesor de educación física, combinando sus estudios académicos con la práctica deportiva.\n\nEsta victoria no solo representa un logro deportivo, sino también el fruto del esfuerzo y dedicación de nuestros jóvenes talentos.',
-        author: 'Juan Pérez',
-        authorId: 1,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-15',
-        comments: [
-            { id: 1, author: 'Carlos Rodríguez', content: '¡Felicidades a todo el equipo! Estamos muy orgullosos del esfuerzo y dedicación.', createdAt: '2025-03-16' },
-            { id: 2, author: 'María González', content: 'Estoy muy orgullosa de nuestros estudiantes. Este logro demuestra que con perseverancia se alcanzan las metas.', createdAt: '2025-03-16' }
-        ]
-    },
-    {
-        id: 2,
-        title: 'Concierto de primavera del coro estudiantil',
-        category: 'musical',
-        chapter: 'portafolios',
-        content: 'El coro estudiantil presentó un emotivo concierto de primavera con canciones tradicionales colombianas y piezas contemporáneas. Bajo la dirección de la profesora de música, los estudiantes demostraron su talento musical y capacidad de trabajo en equipo.\n\nEl evento contó con la participación de más de 30 estudiantes de diferentes grados, quienes dedicaron horas de ensayo para perfeccionar cada nota.',
-        author: 'Ana López',
-        authorId: 5,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-10',
-        comments: [
-            { id: 3, author: 'Padre de Familia', content: '¡Qué hermoso concierto! Felicitaciones a todos los participantes.', createdAt: '2025-03-11' }
-        ]
-    },
-    {
-        id: 3,
-        title: 'Taller de robótica educativa',
-        category: 'tecnologico',
-        chapter: 'experiencias',
-        content: 'El programa Talentos implementó un taller de robótica educativa donde los estudiantes aprendieron programación básica y construcción de robots. Esta experiencia pedagógica innovadora permitió desarrollar habilidades de pensamiento lógico y resolución de problemas.\n\nLos estudiantes trabajaron en equipos colaborativos, diseñando y programando sus propios robots para resolver desafíos específicos.',
-        author: 'María González',
-        authorId: 2,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-18',
-        comments: []
-    },
-    {
-        id: 4,
-        title: 'Reflexiones sobre ser talentoso en colegio público',
-        category: 'linguistico',
-        chapter: 'posicionamiento',
-        content: 'Ser un estudiante con talentos excepcionales en un colegio público de estrato 2 representa tanto desafíos como oportunidades únicas. Esta reflexión busca analizar las experiencias de nuestros estudiantes y el papel de la institución en el desarrollo de sus capacidades.\n\nLa diversidad de nuestro entorno enriquece el proceso educativo y nos enseña que el talento florece en cualquier contexto cuando se le brindan las herramientas adecuadas.',
-        author: 'Juan Pérez',
-        authorId: 1,
-        image: '',
-        imageFile: null,
-        status: 'published',
-        createdAt: '2025-03-22',
-        comments: []
-    },
-    {
-        id: 5,
-        title: 'Nueva obra de teatro estudiantil',
-        category: 'artistico',
-        chapter: 'portafolios',
-        content: 'El grupo de teatro del colegio está preparando una nueva obra que será presentada en el festival intercolegial. Los estudiantes han estado trabajando en el guión, escenografía y actuación durante los últimos dos meses.\n\nEsta producción representa un esfuerzo colaborativo que integra múltiples talentos artísticos de nuestra comunidad educativa.',
-        author: 'Ana López',
-        authorId: 5,
-        image: '',
-        imageFile: null,
-        status: 'pending',
-        createdAt: '2025-03-20',
-        comments: []
-    }
-];
-
-const sampleNotifications = [
-    { 
-        id: 1, 
-        title: 'Nuevo artículo pendiente', 
-        content: 'Hay un nuevo artículo esperando revisión: "Nueva obra de teatro estudiantil"', 
-        type: 'warning', 
-        read: false, 
-        createdAt: '2025-03-21',
-        link: 'pending-articles-page'
-    },
-    { 
-        id: 2, 
-        title: 'Artículo publicado', 
-        content: 'Tu artículo "Concierto de primavera" ha sido publicado exitosamente', 
-        type: 'success', 
-        read: true, 
-        createdAt: '2025-03-18',
-        link: 'articles-page'
-    },
-    { 
-        id: 3, 
-        title: 'Recordatorio de reunión', 
-        content: 'Reunión de padres del Programa Talentos el próximo viernes a las 3:00 PM', 
-        type: 'info', 
-        read: false, 
-        createdAt: '2025-03-20',
-        link: 'dashboard-page'
-    }
-];
-
-// =======================
-// FUNCIONES PRINCIPALES MEJORADAS
-// =======================
-
-// Initialize application
-function initApp() {
-    // Load data from localStorage or use sample data
-    loadDataFromStorage();
     
-    // Set up event listeners
-    setupEventListeners();
+    document.getElementById('article-form-title').textContent = 'Crear Nuevo Artículo';
+    document.getElementById('article-id').value = '';
+    document.getElementById('article-title').value = '';
+    document.getElementById('article-category').value = '';
+    document.getElementById('article-chapter').value = '';
+    document.getElementById('article-content').value = '';
+    document.getElementById('article-image-upload').value = '';
+    document.getElementById('article-status').value = 'draft';
     
-    // Add search functionality
-    addSearchFunctionality();
+    // Reset image preview
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
     
-    // Load public magazine by default
-    loadPublicMagazine();
-    showPage('public-magazine-page');
+    // Reset character counts
+    document.getElementById('title-char-count').textContent = '0/100 caracteres';
+    document.getElementById('content-char-count').textContent = '0/2000 caracteres';
     
-    // Update public header
-    updatePublicHeader();
-    
-    console.log('✅ Sistema de Revista Digital inicializado correctamente');
+    showPage('article-form-page');
 }
 
-// Setup event listeners
-function setupEventListeners() {
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
-    document.getElementById('new-article-btn').addEventListener('click', showNewArticleForm);
-    document.getElementById('cancel-article-btn').addEventListener('click', cancelArticleForm);
-    document.getElementById('article-form').addEventListener('submit', saveArticle);
-    document.getElementById('comment-form').addEventListener('submit', addComment);
-    document.getElementById('create-user-form').addEventListener('submit', createUser);
-    document.getElementById('change-password-form').addEventListener('submit', changePassword);
-    
-    // Character count for forms
-    document.getElementById('article-title').addEventListener('input', updateCharCount);
-    document.getElementById('article-content').addEventListener('input', updateCharCount);
-    document.getElementById('comment-content').addEventListener('input', updateCharCount);
-    
-    // Username availability check
-    document.getElementById('new-user-username').addEventListener('input', checkUsernameAvailability);
-    
-    // Password confirmation check
-    document.getElementById('confirm-password').addEventListener('input', checkPasswordMatch);
-    
-    // Search functionality
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && e.target.id === 'public-search') {
-            searchInMagazine();
-        }
-    });
+// Cancel article form
+function cancelArticleForm() {
+    showPage('articles-page');
+    loadArticles();
 }
 
-// Load data from localStorage
-function loadDataFromStorage() {
-    const savedUsers = localStorage.getItem('revista_users');
-    const savedArticles = localStorage.getItem('revista_articles');
-    const savedNotifications = localStorage.getItem('revista_notifications');
+// Preview image before upload
+function previewImage(input) {
+    const preview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
     
-    state.users = savedUsers ? JSON.parse(savedUsers) : [...sampleUsers];
-    state.articles = savedArticles ? JSON.parse(savedArticles) : [...sampleArticles];
-    state.notifications = savedNotifications ? JSON.parse(savedNotifications) : [...sampleNotifications];
-    
-    // Convertir imageFile de string base64 a Blob si existe
-    state.articles.forEach(article => {
-        if (article.imageFile && typeof article.imageFile === 'string') {
-            // En un sistema real, aquí se reconstruiría el Blob desde base64
-            // Por simplicidad, mantenemos la URL de imagen si existe
-        }
-    });
-}
-
-// Save data to localStorage
-function saveDataToStorage() {
-    // Preparar artículos para almacenamiento (convertir Blobs a base64)
-    const articlesToSave = state.articles.map(article => {
-        const articleCopy = {...article};
-        // No guardamos el Blob directamente en localStorage
-        delete articleCopy.imageFile;
-        return articleCopy;
-    });
-    
-    localStorage.setItem('revista_users', JSON.stringify(state.users));
-    localStorage.setItem('revista_articles', JSON.stringify(articlesToSave));
-    localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
-}
-
-// Update public header navigation
-function updatePublicHeader() {
-    const userInfo = document.getElementById('user-info');
-    const exportBtn = document.getElementById('export-btn');
-    
-    if (state.currentUser) {
-        userInfo.innerHTML = `
-            <div class="user-avatar">${state.currentUser.name.charAt(0)}</div>
-            <div>
-                <div>${state.currentUser.name}</div>
-                <div style="font-size: 0.8rem;">${getRoleName(state.currentUser.role)}</div>
-            </div>
-            <button onclick="logout()">Cerrar Sesión</button>
-        `;
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
         
-        // Show export button for admins
-        if (state.currentUser.role === 'admin') {
-            exportBtn.style.display = 'flex';
+        // Validate file type
+        if (!file.type.match('image.*')) {
+            alert('❌ Por favor selecciona solo archivos de imagen (JPG, PNG, GIF).');
+            input.value = '';
+            return;
         }
         
-        // Update navigation menu
-        updateUIForUser();
+        // Validate file size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('❌ La imagen es demasiado grande. El tamaño máximo permitido es 2MB.');
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        
+        reader.readAsDataURL(file);
     } else {
-        userInfo.innerHTML = `
-            <button onclick="showPublicMagazine()" class="btn-outline">👀 Ver Revista</button>
-            <button onclick="showPage('login-page')">🔐 Ingresar</button>
-        `;
-        
-        // Reset navigation to public view
-        const navMenu = document.getElementById('nav-menu');
-        navMenu.innerHTML = `
-            <li><a href="#" onclick="showPublicMagazine()">🏠</a></li>
-            <li><a href="#" onclick="showPage('login-page')">🔐</a></li>
-        `;
+        preview.style.display = 'none';
     }
 }
 
-// Add search functionality
-function addSearchFunctionality() {
-    // Search functionality is now built into the HTML
+// Remove selected image
+function removeImage() {
+    document.getElementById('article-image-upload').value = '';
+    document.getElementById('image-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
 }
 
-// Show public magazine
-function showPublicMagazine() {
-    loadPublicMagazine();
-    showPage('public-magazine-page');
-    updatePublicHeader();
-}
-
-// Load public magazine content
-function loadPublicMagazine() {
-    loadPublicPortafolios();
-    loadPublicExperiencias();
-    loadPublicPosicionamiento();
-}
-
-// Load public portafolios
-function loadPublicPortafolios() {
-    const grid = document.getElementById('public-portafolios-grid');
-    const portafolios = state.articles.filter(a => a.chapter === 'portafolios' && a.status === 'published');
-    
-    let html = '';
-    portafolios.forEach(article => {
-        html += `
-            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
-                <div class="article-image">
-                    ${article.imageFile ? 
-                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
-                        getCategoryIcon(article.category)
-                    }
-                </div>
-                <div class="article-content">
-                    <h3 class="article-title">${article.title}</h3>
-                    <div class="article-meta">
-                        <span>Por: ${article.author}</span>
-                        <span>${formatDate(article.createdAt)}</span>
-                    </div>
-                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
-                    <div class="article-meta">
-                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
-                        <span>💬 ${article.comments.length}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    grid.innerHTML = html || '<p class="no-content">No hay portafolios publicados aún.</p>';
-}
-
-// Load public experiencias
-function loadPublicExperiencias() {
-    const grid = document.getElementById('public-experiencias-grid');
-    const experiencias = state.articles.filter(a => a.chapter === 'experiencias' && a.status === 'published');
-    
-    let html = '';
-    experiencias.forEach(article => {
-        html += `
-            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
-                <div class="article-image">
-                    ${article.imageFile ? 
-                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
-                        getCategoryIcon(article.category)
-                    }
-                </div>
-                <div class="article-content">
-                    <h3 class="article-title">${article.title}</h3>
-                    <div class="article-meta">
-                        <span>Por: ${article.author}</span>
-                        <span>${formatDate(article.createdAt)}</span>
-                    </div>
-                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
-                    <div class="article-meta">
-                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
-                        <span>💬 ${article.comments.length}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    grid.innerHTML = html || '<p class="no-content">No hay experiencias pedagógicas publicadas aún.</p>';
-}
-
-// Load public posicionamiento
-function loadPublicPosicionamiento() {
-    const grid = document.getElementById('public-posicionamiento-grid');
-    const posicionamientos = state.articles.filter(a => a.chapter === 'posicionamiento' && a.status === 'published');
-    
-    let html = '';
-    posicionamientos.forEach(article => {
-        html += `
-            <div class="article-card" onclick="showPublicArticleDetail(${article.id})">
-                <div class="article-image">
-                    ${article.imageFile ? 
-                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
-                        getCategoryIcon(article.category)
-                    }
-                </div>
-                <div class="article-content">
-                    <h3 class="article-title">${article.title}</h3>
-                    <div class="article-meta">
-                        <span>Por: ${article.author}</span>
-                        <span>${formatDate(article.createdAt)}</span>
-                    </div>
-                    <div class="article-excerpt">${article.content.substring(0, 120)}...</div>
-                    <div class="article-meta">
-                        <span class="article-status ${getCategoryClass(article.category)}">${getCategoryName(article.category)}</span>
-                        <span>💬 ${article.comments.length}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    grid.innerHTML = html || '<p class="no-content">No hay reflexiones críticas publicadas aún.</p>';
-}
-
-// Show public article detail - IMPROVED VERSION
-function showPublicArticleDetail(articleId) {
-    const article = state.articles.find(a => a.id === articleId && a.status === 'published');
-    if (!article) return;
-    
-    // Create modal for public article viewing
-    const modalHTML = `
-        <div class="modal-overlay" onclick="closePublicModal()">
-            <div class="modal-content" onclick="event.stopPropagation()">
-                <div class="modal-header">
-                    <h2>${article.title}</h2>
-                    <button class="modal-close" onclick="closePublicModal()">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="article-meta">
-                        <span><strong>Autor:</strong> ${article.author}</span>
-                        <span><strong>Fecha:</strong> ${formatDate(article.createdAt)}</span>
-                        <span><strong>Categoría:</strong> ${getCategoryName(article.category)}</span>
-                        <span><strong>Capítulo:</strong> ${getChapterName(article.chapter)}</span>
-                    </div>
-                    ${article.imageFile ? `
-                        <div class="article-image-modal">
-                            <img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">
-                        </div>
-                    ` : ''}
-                    <div class="article-content-full">
-                        ${article.content.replace(/\n/g, '<br>')}
-                    </div>
-                    <div class="comments-section">
-                        <h3>💬 Comentarios <span class="article-status">${article.comments.length}</span></h3>
-                        ${article.comments.length > 0 ? article.comments.map(comment => `
-                            <div class="notification">
-                                <h4>${comment.author}</h4>
-                                <p>${comment.content}</p>
-                                <small>${formatDate(comment.createdAt)}</small>
-                            </div>
-                        `).join('') : '<p class="no-content">No hay comentarios aún.</p>'}
-                    </div>
-                    <div class="article-actions-public">
-                        <p><em>💡 Para comentar y acceder a más funciones, <a href="#" onclick="showPage('login-page'); closePublicModal()">inicia sesión</a></em></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Add modal to body
-    const modalContainer = document.createElement('div');
-    modalContainer.id = 'public-article-modal';
-    modalContainer.innerHTML = modalHTML;
-    document.body.appendChild(modalContainer);
-}
-
-function closePublicModal() {
-    const modal = document.getElementById('public-article-modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-// Search in magazine
-function searchInMagazine() {
-    const searchTerm = document.getElementById('public-search').value.toLowerCase().trim();
-    if (!searchTerm) {
-        alert('Por favor, ingresa un término de búsqueda.');
-        return;
-    }
-    
-    const results = state.articles.filter(article => 
-        article.status === 'published' && 
-        (article.title.toLowerCase().includes(searchTerm) || 
-         article.content.toLowerCase().includes(searchTerm) ||
-         article.author.toLowerCase().includes(searchTerm) ||
-         getCategoryName(article.category).toLowerCase().includes(searchTerm))
-    );
-    
-    if (results.length === 0) {
-        alert('No se encontraron artículos que coincidan con tu búsqueda.');
-        return;
-    }
-    
-    // Show results in modal
-    showSearchResults(results, searchTerm);
-}
-
-function showSearchResults(results, searchTerm) {
-    let resultsHTML = `
-        <div class="modal-overlay" onclick="closeSearchModal()">
-            <div class="modal-content" onclick="event.stopPropagation()">
-                <div class="modal-header">
-                    <h2>🔍 Resultados de búsqueda: "${searchTerm}"</h2>
-                    <button class="modal-close" onclick="closeSearchModal()">×</button>
-                </div>
-                <div class="modal-body">
-                    <p>Se encontraron ${results.length} artículo(s) que coinciden con tu búsqueda.</p>
-                    <div class="articles-grid" style="margin-top: 1rem;">
-    `;
-    
-    results.forEach(article => {
-        resultsHTML += `
-            <div class="article-card" onclick="showPublicArticleDetail(${article.id}); closeSearchModal()">
-                <div class="article-image">
-                    ${article.imageFile ? 
-                        `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
-                        getCategoryIcon(article.category)
-                    }
-                </div>
-                <div class="article-content">
-                    <h3 class="article-title">${article.title}</h3>
-                    <div class="article-meta">
-                        <span>Por: ${article.author}</span>
-                        <span>${formatDate(article.createdAt)}</span>
-                        <span>${getCategoryName(article.category)}</span>
-                    </div>
-                    <div class="article-excerpt">${article.content.substring(0, 150)}...</div>
-                </div>
-            </div>
-        `;
-    });
-    
-    resultsHTML += `
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    const modalContainer = document.createElement('div');
-    modalContainer.id = 'search-results-modal';
-    modalContainer.innerHTML = resultsHTML;
-    document.body.appendChild(modalContainer);
-}
-
-function closeSearchModal() {
-    const modal = document.getElementById('search-results-modal');
-    if (modal) modal.remove();
-}
-
-// Handle user login
-function handleLogin(e) {
+// Save article (create or update)
+function saveArticle(e) {
     e.preventDefault();
     
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const role = document.getElementById('role').value;
-    
-    const user = state.users.find(u => 
-        u.username === username && u.password === password && u.role === role && u.active
-    );
-    
-    if (user) {
-        state.currentUser = user;
-        
-        // Update last login
-        user.lastLogin = new Date().toISOString().split('T')[0];
-        saveDataToStorage();
-        
-        updateUIForUser();
-        showPage('dashboard-page');
-        updateDashboard();
-        updatePublicHeader();
-        
-        // Add login notification
-        state.notifications.unshift({
-            id: state.notifications.length > 0 ? Math.max(...state.notifications.map(n => n.id)) + 1 : 1,
-            title: '👋 ¡Bienvenido/a!',
-            content: `Has iniciado sesión correctamente como ${getRoleName(user.role)}`,
-            type: 'info',
-            read: false,
-            createdAt: new Date().toISOString().split('T')[0]
-        });
-        saveDataToStorage();
-        
-        alert(`✅ Bienvenido/a ${user.name}! Has ingresado como ${getRoleName(user.role)}`);
-    } else {
-        alert('❌ Credenciales incorrectas o usuario inactivo. Por favor, intente nuevamente.💡');
-    }
-}
-
-// Update UI based on logged in user
-function updateUIForUser() {
-    const navMenu = document.getElementById('nav-menu');
-    
-    let navItems = '';
-    
-    if (state.currentUser) {
-        // Common items for all logged-in users
-        navItems = `
-            <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-            <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 ${state.currentUser.role === 'student' ? 'Mis Artículos' : 'Artículos'}</a></li>
-            <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
-            <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-        `;
-        
-        // Role-specific items
-        if (state.currentUser.role === 'teacher' || state.currentUser.role === 'admin') {
-            navItems = `
-                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
-                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
-                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
-                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-            `;
-        }
-        
-        if (state.currentUser.role === 'admin') {
-            navItems = `
-                <li><a href="#" onclick="showPage('dashboard-page'); updateDashboard()">📊 Dashboard</a></li>
-                <li><a href="#" onclick="showPage('articles-page'); loadArticles()">📚 Artículos</a></li>
-                <li><a href="#" onclick="showPage('pending-articles-page'); loadPendingArticles()">⏳ Revisar Artículos</a></li>
-                <li><a href="#" onclick="showPage('users-page'); loadUsers()">👥 Usuarios</a></li>
-                <li><a href="#" onclick="showGamesPage()">🎮 Juegos Educativos</a></li>
-                <li><a href="#" onclick="showPublicMagazine()">👀 Ver Revista</a></li>
-            `;
-        }
-    }
-    
-    navMenu.innerHTML = navItems;
-}
-
-// Get role name for display
-function getRoleName(role) {
-    const roles = {
-        'student': 'Estudiante Reportero',
-        'teacher': 'Docente',
-        'admin': 'Administrador',
-        'parent': 'Padre de Familia'
-    };
-    return roles[role] || role;
-}
-
-// Get category name for display
-function getCategoryName(category) {
-    const categories = {
-        'deportivo': '🏃 Deportivo',
-        'musical': '🎵 Musical',
-        'matematico': '🔢 Matemático',
-        'linguistico': '📝 Lingüístico',
-        'tecnologico': '💻 Tecnológico',
-        'artistico': '🎨 Artístico'
-    };
-    return categories[category] || category;
-}
-
-// Get category icon
-function getCategoryIcon(category) {
-    const icons = {
-        'deportivo': '🏃',
-        'musical': '🎵',
-        'matematico': '🔢',
-        'linguistico': '📝',
-        'tecnologico': '💻',
-        'artistico': '🎨'
-    };
-    return icons[category] || '📄';
-}
-
-// Get category CSS class
-function getCategoryClass(category) {
-    const classes = {
-        'deportivo': 'talento-deportivo',
-        'musical': 'talento-musical',
-        'matematico': 'talento-matematico',
-        'linguistico': 'talento-linguistico',
-        'tecnologico': 'talento-tecnologico',
-        'artistico': 'talento-artistico'
-    };
-    return classes[category] || '';
-}
-
-// Get chapter name
-function getChapterName(chapter) {
-    const chapters = {
-        'portafolios': 'Portafolios Estudiantiles',
-        'experiencias': 'Experiencias Pedagógicas',
-        'posicionamiento': 'Posicionamiento Crítico'
-    };
-    return chapters[chapter] || chapter;
-}
-
-// Format date
-function formatDate(dateString) {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('es-ES', options);
-}
-
-// Show a specific page
-function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
-    
-    document.getElementById(pageId).classList.add('active');
-    state.currentPage = pageId;
-}
-
-// Update character count
-function updateCharCount(e) {
-    const target = e.target;
-    const maxLength = target.id === 'article-title' ? 100 : 
-                     target.id === 'article-content' ? 2000 : 500;
-    const currentLength = target.value.length;
-    const charCountElement = document.getElementById(`${target.id}-char-count`);
-    
-    if (charCountElement) {
-        charCountElement.textContent = `${currentLength}/${maxLength} caracteres`;
-        
-        // Add warning class if approaching limit
-        charCountElement.className = 'char-count';
-        if (currentLength > maxLength * 0.8) {
-            charCountElement.classList.add('warning');
-        }
-        if (currentLength > maxLength) {
-            charCountElement.classList.add('error');
-        }
-    }
-}
-
-// Check username availability
-function checkUsernameAvailability() {
-    const username = document.getElementById('new-user-username').value;
-    const availabilityElement = document.getElementById('username-availability');
-    
-    if (!username) {
-        availabilityElement.textContent = '';
-        return;
-    }
-    
-    const exists = state.users.some(user => user.username === username);
-    
-    if (exists) {
-        availabilityElement.textContent = '❌ Este nombre de usuario ya existe';
-        availabilityElement.style.color = 'var(--danger)';
-    } else {
-        availabilityElement.textContent = '✅ Nombre de usuario disponible';
-        availabilityElement.style.color = 'var(--success)';
-    }
-}
-
-// Check password match
-function checkPasswordMatch() {
-    const password = document.getElementById('new-password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    const matchElement = document.getElementById('password-match');
-    
-    if (!confirmPassword) {
-        matchElement.textContent = '';
-        return;
-    }
-    
-    if (password === confirmPassword) {
-        matchElement.textContent = '✅ Las contraseñas coinciden';
-        matchElement.style.color = 'var(--success)';
-    } else {
-        matchElement.textContent = '❌ Las contraseñas no coinciden';
-        matchElement.style.color = 'var(--danger)';
-    }
-}
-
-// Update dashboard with current data
-function updateDashboard() {
     if (!state.currentUser) return;
     
-    const publishedCount = state.articles.filter(a => a.status === 'published').length;
-    const pendingCount = state.articles.filter(a => a.status === 'pending').length;
-    const commentsCount = state.articles.reduce((total, article) => total + article.comments.length, 0);
-    const usersCount = state.users.filter(u => u.active).length;
+    const articleId = document.getElementById('article-id').value;
+    const title = document.getElementById('article-title').value;
+    const category = document.getElementById('article-category').value;
+    const chapter = document.getElementById('article-chapter').value;
+    const content = document.getElementById('article-content').value;
+    const status = document.getElementById('article-status').value;
+    const imageFile = document.getElementById('article-image-upload').files[0];
     
-    document.getElementById('published-count').textContent = publishedCount;
-    document.getElementById('pending-count').textContent = pendingCount;
-    document.getElementById('comments-count').textContent = commentsCount;
-    document.getElementById('users-count').textContent = usersCount;
-    document.getElementById('welcome-user-name').textContent = state.currentUser.name;
-    
-    loadNotifications();
-}
-
-// Load notifications
-function loadNotifications() {
-    const notificationsList = document.getElementById('notifications-list');
-    let notificationsHTML = '';
-    
-    const userNotifications = state.notifications.slice(0, 5); // Show last 5
-    
-    if (userNotifications.length === 0) {
-        notificationsHTML = '<div class="notification"><p>No hay notificaciones recientes.</p></div>';
-    } else {
-        userNotifications.forEach(notification => {
-            const notificationClass = notification.read ? 'notification' : 'notification unread';
-            const icon = notification.type === 'success' ? '✅' : 
-                        notification.type === 'warning' ? '⚠️' : 
-                        notification.type === 'danger' ? '❌' : 'ℹ️';
-            
-            notificationsHTML += `
-                <div class="${notificationClass}" onclick="markNotificationAsRead(${notification.id})">
-                    <h4>${icon} ${notification.title}</h4>
-                    <p>${notification.content}</p>
-                    <small>${formatDate(notification.createdAt)}</small>
-                </div>
-            `;
-        });
+    // Validate form
+    if (!title || title.length < 5) {
+        alert('❌ El título debe tener al menos 5 caracteres');
+        return;
     }
     
-    notificationsList.innerHTML = notificationsHTML;
-}
-
-// Mark notification as read
-function markNotificationAsRead(notificationId) {
-    const notification = state.notifications.find(n => n.id === notificationId);
-    if (notification) {
-        notification.read = true;
-        saveDataToStorage();
-        if (notification.link) {
-            showPage(notification.link);
-            if (notification.link === 'pending-articles-page') {
-                loadPendingArticles();
-            } else if (notification.link === 'articles-page') {
-                loadArticles();
+    if (!content || content.length < 20) {
+        alert('❌ El contenido debe tener al menos 20 caracteres');
+        return;
+    }
+    
+    if (articleId) {
+        // Update existing article
+        const index = state.articles.findIndex(a => a.id === parseInt(articleId));
+        if (index !== -1) {
+            state.articles[index].title = title;
+            state.articles[index].category = category;
+            state.articles[index].chapter = chapter;
+            state.articles[index].content = content;
+            state.articles[index].status = status;
+            state.articles[index].updatedAt = new Date().toISOString().split('T')[0];
+            
+            // Update image if new one was selected
+            if (imageFile) {
+                state.articles[index].imageFile = imageFile;
             }
         }
-        loadNotifications();
+    } else {
+        // Create new article
+        const newArticle = {
+            id: state.articles.length > 0 ? Math.max(...state.articles.map(a => a.id)) + 1 : 1,
+            title,
+            category,
+            chapter,
+            content,
+            author: state.currentUser.name,
+            authorId: state.currentUser.id,
+            imageFile: imageFile || null,
+            status,
+            createdAt: new Date().toISOString().split('T')[0],
+            comments: []
+        };
+        
+        state.articles.push(newArticle);
     }
+    
+    saveDataToStorage();
+    showPage('articles-page');
+    loadArticles();
+    updateDashboard();
+    
+    alert('✅ Artículo guardado exitosamente.');
 }
 
-// Load articles
-function loadArticles() {
-    const articlesGrid = document.getElementById('articles-grid');
+// Load pending articles (for teachers/admins)
+function loadPendingArticles() {
+    const pendingGrid = document.getElementById('pending-articles-grid');
     let articlesHTML = '';
     
-    let articlesToShow = [...state.articles];
+    const pendingArticles = state.articles.filter(a => a.status === 'pending');
     
-    // Filter based on user role
-    if (state.currentUser.role === 'student') {
-        articlesToShow = articlesToShow.filter(a => a.authorId === state.currentUser.id);
-    } else if (state.currentUser.role === 'parent') {
-        articlesToShow = articlesToShow.filter(a => a.status === 'published');
-    }
+    document.getElementById('total-pending').textContent = pendingArticles.length;
     
-    // Apply filters
-    const statusFilter = document.getElementById('article-filter').value;
-    const categoryFilter = document.getElementById('category-filter').value;
-    const chapterFilter = document.getElementById('chapter-filter').value;
-    
-    if (statusFilter !== 'all') {
-        articlesToShow = articlesToShow.filter(a => a.status === statusFilter);
-    }
-    
-    if (categoryFilter !== 'all') {
-        articlesToShow = articlesToShow.filter(a => a.category === categoryFilter);
-    }
-    
-    if (chapterFilter !== 'all') {
-        articlesToShow = articlesToShow.filter(a => a.chapter === chapterFilter);
-    }
-    
-    if (articlesToShow.length === 0) {
-        articlesHTML = '<div class="no-content"><p>No se encontraron artículos.</p></div>';
+    if (pendingArticles.length === 0) {
+        articlesHTML = '<div class="no-content"><p>No hay artículos pendientes de revisión.</p></div>';
     } else {
-        articlesToShow.forEach(article => {
-            const statusClass = `article-status status-${article.status}`;
-            const statusText = getStatusText(article.status);
-            
+        pendingArticles.forEach(article => {
             articlesHTML += `
-                <div class="article-card" onclick="showArticleDetail(${article.id})">
+                <div class="article-card">
                     <div class="article-image">
-                        ${article.imageFile ? 
-                            `<img src="${URL.createObjectURL(article.imageFile)}" alt="${article.title}">` : 
-                            getCategoryIcon(article.category)
-                        }
+                        ${getCategoryIcon(article.category)}
                     </div>
                     <div class="article-content">
                         <h3 class="article-title">${article.title}</h3>
@@ -891,36 +169,364 @@ function loadArticles() {
                         <div class="article-excerpt">${article.content.substring(0, 100)}...</div>
                         <div class="article-meta">
                             <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
-                            <span class="${statusClass}">${statusText}</span>
+                            <span class="article-status status-pending">Pendiente</span>
                         </div>
-                        ${article.authorId === state.currentUser.id && article.status !== 'published' ? 
-                          `<div class="action-buttons">
-                              <button onclick="event.stopPropagation(); editArticle(${article.id})">✏️ Editar</button>
-                              <button class="btn-danger" onclick="event.stopPropagation(); deleteArticle(${article.id})">🗑️ Eliminar</button>
-                           </div>` : ''}
+                        <div class="action-buttons">
+                            <button class="btn-success" onclick="approveArticle(${article.id})">✅ Aprobar</button>
+                            <button class="btn-danger" onclick="rejectArticle(${article.id})">❌ Rechazar</button>
+                        </div>
                     </div>
                 </div>
             `;
         });
     }
     
-    articlesGrid.innerHTML = articlesHTML;
+    pendingGrid.innerHTML = articlesHTML;
 }
 
-// Get status text
-function getStatusText(status) {
-    const statuses = {
-        'published': 'Publicado',
-        'pending': 'Pendiente',
-        'draft': 'Borrador',
-        'rejected': 'Rechazado'
+// Approve article
+function approveArticle(articleId) {
+    const index = state.articles.findIndex(a => a.id === articleId);
+    if (index !== -1) {
+        state.articles[index].status = 'published';
+        state.articles[index].publishedAt = new Date().toISOString().split('T')[0];
+        saveDataToStorage();
+        loadPendingArticles();
+        updateDashboard();
+        alert('✅ Artículo aprobado y publicado exitosamente.');
+    }
+}
+
+// Reject article
+function rejectArticle(articleId) {
+    const article = state.articles.find(a => a.id === articleId);
+    if (article) {
+        const reason = prompt('Por favor, ingrese el motivo del rechazo:');
+        if (reason === null) return; // User cancelled
+        
+        if (!reason.trim()) {
+            alert('Debe ingresar un motivo para rechazar el artículo.');
+            return;
+        }
+        
+        article.status = 'rejected';
+        article.rejectionReason = reason;
+        saveDataToStorage();
+        loadPendingArticles();
+        updateDashboard();
+        alert('✅ Artículo rechazado.');
+    }
+}
+
+// Show article detail
+function showArticleDetail(articleId) {
+    const article = state.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    const articleDetail = document.getElementById('article-detail-content');
+    const statusClass = `article-status status-${article.status}`;
+    const statusText = getStatusText(article.status);
+    
+    articleDetail.innerHTML = `
+        <div class="form-container">
+            <h2>${article.title}</h2>
+            <div class="article-meta">
+                <span>Por: ${article.author}</span>
+                <span>${formatDate(article.createdAt)}</span>
+                <span>${getCategoryName(article.category)} • ${getChapterName(article.chapter)}</span>
+                <span class="${statusClass}">${statusText}</span>
+            </div>
+            <div style="margin: 1rem 0; line-height: 1.8; white-space: pre-line;">${article.content}</div>
+        </div>
+    `;
+    
+    document.getElementById('comment-article-id').value = articleId;
+    document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
+    loadComments(articleId);
+    showPage('article-detail-page');
+}
+
+// Edit article
+function editArticle(articleId) {
+    const article = state.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    document.getElementById('article-form-title').textContent = 'Editar Artículo';
+    document.getElementById('article-id').value = article.id;
+    document.getElementById('article-title').value = article.title;
+    document.getElementById('article-category').value = article.category;
+    document.getElementById('article-chapter').value = article.chapter;
+    document.getElementById('article-content').value = article.content;
+    document.getElementById('article-status').value = article.status;
+    
+    showPage('article-form-page');
+}
+
+// Delete article
+function deleteArticle(articleId) {
+    if (confirm('¿Está seguro de que desea eliminar este artículo? Esta acción no se puede deshacer.')) {
+        const index = state.articles.findIndex(a => a.id === articleId);
+        if (index !== -1) {
+            state.articles.splice(index, 1);
+            saveDataToStorage();
+            showPage('articles-page');
+            loadArticles();
+            updateDashboard();
+            alert('✅ Artículo eliminado exitosamente.');
+        }
+    }
+}
+
+// Load comments for an article
+function loadComments(articleId) {
+    const article = state.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    const commentsList = document.getElementById('comments-list');
+    let commentsHTML = '';
+    
+    if (article.comments.length === 0) {
+        commentsHTML = '<div class="no-content"><p>No hay comentarios aún. ¡Sé el primero en comentar!</p></div>';
+    } else {
+        article.comments.forEach(comment => {
+            commentsHTML += `
+                <div class="notification">
+                    <h4>${comment.author}</h4>
+                    <p>${comment.content}</p>
+                    <small>${formatDate(comment.createdAt)}</small>
+                </div>
+            `;
+        });
+    }
+    
+    commentsList.innerHTML = commentsHTML;
+}
+
+// Add comment to an article
+function addComment(e) {
+    e.preventDefault();
+    
+    if (!state.currentUser) return;
+    
+    const articleId = parseInt(document.getElementById('comment-article-id').value);
+    const content = document.getElementById('comment-content').value;
+    
+    const article = state.articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    if (!content.trim()) {
+        alert('El comentario no puede estar vacío.');
+        return;
+    }
+    
+    const newComment = {
+        id: article.comments.length > 0 ? Math.max(...article.comments.map(c => c.id)) + 1 : 1,
+        author: state.currentUser.name,
+        content,
+        createdAt: new Date().toISOString().split('T')[0]
     };
-    return statuses[status] || status;
+    
+    article.comments.push(newComment);
+    document.getElementById('comment-content').value = '';
+    document.getElementById('comment-char-count').textContent = '0/500 caracteres';
+    
+    saveDataToStorage();
+    loadComments(articleId);
+    updateDashboard();
+    
+    document.getElementById('comments-count-badge').textContent = `(${article.comments.length})`;
+    alert('✅ Comentario publicado exitosamente.');
 }
 
-// Filter articles
-function filterArticles() {
-    loadArticles();
+// Show games page
+function showGamesPage() {
+    showPage('games-page');
+    initGamesDashboard();
 }
+
+// Initialize games dashboard
+function initGamesDashboard() {
+    console.log('🎮 Inicializando juegos...');
+    // Lógica básica de juegos aquí
+}
+
+// Show users page (for admins)
+function showUsersPage() {
+    showPage('users-page');
+    loadUsers();
+}
+
+// Load users (for admins)
+function loadUsers() {
+    const usersTable = document.getElementById('users-table-body');
+    let usersHTML = '';
+    
+    state.users.forEach(user => {
+        usersHTML += `
+            <tr>
+                <td>${user.name}</td>
+                <td>${user.username}</td>
+                <td>${getRoleName(user.role)} ${user.talento ? `(${getCategoryName(user.talento)})` : ''}</td>
+                <td><span class="article-status ${user.active ? 'status-published' : 'status-rejected'}">${user.active ? 'Activo' : 'Inactivo'}</span></td>
+                <td>${formatDate(user.lastLogin)}</td>
+                <td class="action-buttons">
+                    <button onclick="toggleUserStatus(${user.id})">${user.active ? '🚫 Desactivar' : '✅ Activar'}</button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    usersTable.innerHTML = usersHTML;
+}
+
+// Toggle user status
+function toggleUserStatus(userId) {
+    const user = state.users.find(u => u.id === userId);
+    if (user) {
+        user.active = !user.active;
+        saveDataToStorage();
+        loadUsers();
+        alert(`✅ Usuario ${user.active ? 'activado' : 'desactivado'} exitosamente.`);
+    }
+}
+
+// Show create user form
+function showCreateUserForm() {
+    showPage('create-user-page');
+}
+
+// Create new user
+function createUser(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('new-user-name').value;
+    const username = document.getElementById('new-user-username').value;
+    const password = document.getElementById('new-user-password').value;
+    const role = document.getElementById('new-user-role').value;
+    const talento = document.getElementById('new-user-talento').value;
+    
+    if (!name || !username || !password || !role) {
+        alert('Todos los campos son requeridos.');
+        return;
+    }
+    
+    // Check if username already exists
+    if (state.users.find(u => u.username === username)) {
+        alert('❌ El nombre de usuario ya existe. Por favor elija otro.');
+        return;
+    }
+    
+    const newUser = {
+        id: state.users.length > 0 ? Math.max(...state.users.map(u => u.id)) + 1 : 1,
+        username,
+        password,
+        name,
+        role,
+        active: true,
+        lastLogin: new Date().toISOString().split('T')[0]
+    };
+    
+    // Add talento for students
+    if (role === 'student' && talento) {
+        newUser.talento = talento;
+    }
+    
+    state.users.push(newUser);
+    saveDataToStorage();
+    
+    showPage('users-page');
+    loadUsers();
+    alert('✅ Usuario creado exitosamente.');
+}
+
+// Show change password form
+function showChangePasswordForm() {
+    if (!state.currentUser) return;
+    showPage('change-password-page');
+}
+
+// Change password
+function changePassword(e) {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    if (currentPassword !== state.currentUser.password) {
+        alert('❌ La contraseña actual es incorrecta.');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        alert('❌ Las nuevas contraseñas no coinciden.');
+        return;
+    }
+    
+    state.currentUser.password = newPassword;
+    saveDataToStorage();
+    
+    showPage('dashboard-page');
+    alert('✅ Contraseña cambiada exitosamente.');
+}
+
+// Logout
+function logout() {
+    state.currentUser = null;
+    showPublicMagazine();
+    document.getElementById('login-form').reset();
+    updatePublicHeader();
+}
+
+// Help system
+function showHelp(section) {
+    alert(`Ayuda para: ${section}\n\nEsta función estará disponible pronto.`);
+}
+
+// Export data function (for admins)
+function exportData() {
+    const exportData = {
+        exportedAt: new Date().toISOString(),
+        system: 'Revista Digital - Colegio San Francisco IED',
+        data: {
+            articles: state.articles,
+            users: state.users,
+            notifications: state.notifications
+        }
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `revista_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert('✅ Datos exportados exitosamente.');
+}
+
+// =======================
+// INICIALIZACIÓN
+// =======================
+
+// Make functions globally available
+window.showPage = showPage;
+window.showPublicMagazine = showPublicMagazine;
+window.showGamesPage = showGamesPage;
+window.showNewArticleForm = showNewArticleForm;
+window.showUsersPage = showUsersPage;
+window.showCreateUserForm = showCreateUserForm;
+window.showChangePasswordForm = showChangePasswordForm;
+window.showHelp = showHelp;
+window.logout = logout;
+window.exportData = exportData;
+window.previewImage = previewImage;
+window.removeImage = removeImage;
+
+// Initialize the application when the page loads
+document.addEventListener('DOMContentLoaded', initApp);
 
 /*-------------------------------------------------------------------------------- */
