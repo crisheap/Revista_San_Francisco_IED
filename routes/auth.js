@@ -5,7 +5,7 @@ import { query } from '../config/database.js';
 
 const router = express.Router();
 
-// Login de usuario
+// Login de usuario - VERSIÓN CORREGIDA
 router.post('/login', async (req, res) => {
     try {
         const { username, password, role } = req.body;
@@ -16,6 +16,8 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        console.log(`🔐 Intentando login: ${username}, rol: ${role}`);
+
         // Buscar usuario en la base de datos
         const result = await query(
             'SELECT * FROM users WHERE username = $1 AND role = $2 AND active = true',
@@ -23,18 +25,36 @@ router.post('/login', async (req, res) => {
         );
 
         if (result.rows.length === 0) {
+            console.log('❌ Usuario no encontrado o inactivo');
             return res.status(401).json({ 
                 error: 'Credenciales incorrectas o usuario inactivo' 
             });
         }
 
         const user = result.rows[0];
+        console.log(`✅ Usuario encontrado: ${user.name}, ID: ${user.id}`);
 
-        // En producción, deberías verificar la contraseña hasheada
-        // Por ahora, comparamos directamente para testing
-        const validPassword = password === '123' || await bcrypt.compare(password, user.password);
+        // VERIFICACIÓN SIMPLIFICADA PARA TESTING
+        // Para desarrollo/testing, aceptar contraseña '123' sin hash
+        let validPassword = false;
         
+        if (password === '123') {
+            // Contraseña de testing aceptada
+            validPassword = true;
+            console.log('🔓 Contraseña de testing aceptada');
+        } else {
+            // Intentar verificar contraseña hasheada
+            try {
+                validPassword = await bcrypt.compare(password, user.password);
+                console.log('🔐 Verificación con bcrypt');
+            } catch (hashError) {
+                console.log('❌ Error en bcrypt:', hashError);
+                validPassword = false;
+            }
+        }
+
         if (!validPassword) {
+            console.log('❌ Contraseña incorrecta');
             return res.status(401).json({ 
                 error: 'Credenciales incorrectas' 
             });
@@ -54,15 +74,11 @@ router.post('/login', async (req, res) => {
                 role: user.role,
                 name: user.name
             },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'fallback_secret',
             { expiresIn: '24h' }
         );
 
-        // Crear notificación de login
-        await query(
-            'INSERT INTO notifications (user_id, title, content, type) VALUES ($1, $2, $3, $4)',
-            [user.id, '👋 ¡Bienvenido/a!', 'Has iniciado sesión correctamente', 'info']
-        );
+        console.log(`🎉 Login exitoso para: ${user.name}`);
 
         res.json({
             message: 'Login exitoso',
@@ -77,8 +93,11 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error en login:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        console.error('❌ Error en login:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
