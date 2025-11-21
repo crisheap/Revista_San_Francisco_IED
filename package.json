@@ -1,15 +1,16 @@
 {
   "name": "revista-digital-csf",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Revista Digital Colegio San Francisco IED - Programa Talentos y Capacidades Excepcionales",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "npm install",
     "test": "echo \"No tests specified\" && exit 0",
     "render-build": "npm install",
-    "init-db": "node init-db.js"
+    "init-db": "node models/init-db.js"
   },
   "keywords": [
     "revista",
@@ -36,9 +37,5 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/tu-usuario/revista-digital-csf"
   }
 }

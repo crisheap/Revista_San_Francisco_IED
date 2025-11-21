@@ -1,193 +1,103 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const database = require('../database');
+import express from 'express';
+import { query } from '../config/database.js';
 
 const router = express.Router();
 
-// Middleware para verificar token
-const authenticateToken = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-        return res.status(401).json({
-            success: false,
-            message: 'Token de acceso requerido'
-        });
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        return res.status(401).json({
-            success: false,
-            message: 'Token inválido'
-        });
-    }
-};
-
 // Obtener notificaciones del usuario
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/user/:userId', async (req, res) => {
     try {
-        const { limit = 20, page = 1 } = req.query;
+        const { userId } = req.params;
+        const { unread } = req.query;
 
-        const result = await database.query(`
-            SELECT * FROM revista_digital.notifications 
-            WHERE user_id = $1 
-            ORDER BY created_at DESC 
-            LIMIT $2 OFFSET $3
-        `, [req.user.id, parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+        let whereClause = 'WHERE user_id = $1';
+        const params = [userId];
 
-        const totalResult = await database.query(
-            'SELECT COUNT(*) FROM revista_digital.notifications WHERE user_id = $1',
-            [req.user.id]
-        );
+        if (unread === 'true') {
+            whereClause += ' AND read = false';
+        }
 
-        res.json({
-            success: true,
-            notifications: result.rows,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total: parseInt(totalResult.rows[0].count),
-                totalPages: Math.ceil(parseInt(totalResult.rows[0].count) / parseInt(limit))
-            }
-        });
+        const result = await query(`
+            SELECT * FROM notifications 
+            ${whereClause}
+            ORDER BY created_at DESC
+            LIMIT 50
+        `, params);
+
+        res.json({ notifications: result.rows });
 
     } catch (error) {
-        console.error('❌ Error obteniendo notificaciones:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor'
-        });
+        console.error('Error obteniendo notificaciones:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
 // Marcar notificación como leída
-router.patch('/:id/read', authenticateToken, async (req, res) => {
+router.patch('/:id/read', async (req, res) => {
     try {
         const { id } = req.params;
 
-        const result = await database.query(`
-            UPDATE revista_digital.notifications 
-            SET read = true 
-            WHERE id = $1 AND user_id = $2
-            RETURNING *
-        `, [id, req.user.id]);
+        const result = await query(
+            'UPDATE notifications SET read = true WHERE id = $1 RETURNING *',
+            [id]
+        );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Notificación no encontrada'
-            });
+            return res.status(404).json({ error: 'Notificación no encontrada' });
         }
 
-        res.json({
-            success: true,
+        res.json({ 
             message: 'Notificación marcada como leída',
             notification: result.rows[0]
         });
 
     } catch (error) {
-        console.error('❌ Error marcando notificación como leída:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor'
-        });
+        console.error('Error marcando notificación:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
-// Marcar todas las notificaciones como leídas
-router.patch('/read-all', authenticateToken, async (req, res) => {
+// Marcar todas como leídas
+router.patch('/user/:userId/read-all', async (req, res) => {
     try {
-        await database.query(`
-            UPDATE revista_digital.notifications 
-            SET read = true 
-            WHERE user_id = $1 AND read = false
-        `, [req.user.id]);
+        const { userId } = req.params;
 
-        res.json({
-            success: true,
-            message: 'Todas las notificaciones marcadas como leídas'
-        });
+        await query(
+            'UPDATE notifications SET read = true WHERE user_id = $1 AND read = false',
+            [userId]
+        );
+
+        res.json({ message: 'Todas las notificaciones marcadas como leídas' });
 
     } catch (error) {
-        console.error('❌ Error marcando notificaciones como leídas:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor'
-        });
+        console.error('Error marcando notificaciones:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
 // Obtener estadísticas de notificaciones
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/user/:userId/stats', async (req, res) => {
     try {
-        const totalResult = await database.query(
-            'SELECT COUNT(*) FROM revista_digital.notifications WHERE user_id = $1',
-            [req.user.id]
+        const { userId } = req.params;
+
+        const totalResult = await query(
+            'SELECT COUNT(*) FROM notifications WHERE user_id = $1',
+            [userId]
         );
 
-        const unreadResult = await database.query(
-            'SELECT COUNT(*) FROM revista_digital.notifications WHERE user_id = $1 AND read = false',
-            [req.user.id]
-        );
-
-        const recentResult = await database.query(
-            `SELECT COUNT(*) FROM revista_digital.notifications 
-             WHERE user_id = $1 AND created_at >= CURRENT_DATE - INTERVAL '7 days'`,
-            [req.user.id]
+        const unreadResult = await query(
+            'SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = false',
+            [userId]
         );
 
         res.json({
-            success: true,
-            stats: {
-                total: parseInt(totalResult.rows[0].count),
-                unread: parseInt(unreadResult.rows[0].count),
-                recent: parseInt(recentResult.rows[0].count)
-            }
+            total: parseInt(totalResult.rows[0].count),
+            unread: parseInt(unreadResult.rows[0].count)
         });
 
     } catch (error) {
-        console.error('❌ Error obteniendo estadísticas de notificaciones:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor'
-        });
+        console.error('Error obteniendo estadísticas:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
-// Eliminar notificación
-router.delete('/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const result = await database.query(`
-            DELETE FROM revista_digital.notifications 
-            WHERE id = $1 AND user_id = $2
-            RETURNING *
-        `, [id, req.user.id]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Notificación no encontrada'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Notificación eliminada exitosamente'
-        });
-
-    } catch (error) {
-        console.error('❌ Error eliminando notificación:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error interno del servidor'
-        });
-    }
-});
-
-module.exports = router;
+export default router;
