@@ -1,4 +1,3 @@
-/*
 // Application State
 const state = {
     currentUser: null,
@@ -250,7 +249,7 @@ function saveDataToStorage() {
         return articleCopy;
     });
     
-    /*localStorage.setItem('revista_users', JSON.stringify(state.users));
+    localStorage.setItem('revista_users', JSON.stringify(state.users));
     localStorage.setItem('revista_articles', JSON.stringify(articlesToSave));
     localStorage.setItem('revista_notifications', JSON.stringify(state.notifications));
 }
@@ -922,19 +921,10 @@ function getStatusText(status) {
 // Filter articles
 function filterArticles() {
     loadArticles();
-}*/
+}
 
 /*-------------------------------------------------------------------------------- */
 // Application State
-const state = {
-    currentUser: null,
-    currentPage: 'public-magazine-page',
-    articles: [],
-    users: [],
-    notifications: [],
-    apiBaseUrl: window.location.origin + '/api'
-};
-
 // API Service - Maneja todas las llamadas al backend
 const apiService = {
     // Headers comunes
